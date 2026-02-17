@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"gotsan/analysis"
 	"log"
 	"os"
 	"strings"
@@ -42,38 +43,16 @@ func main() {
 		log.Fatalf("failed to parse file: %v", err)
 	}
 
-	// Walk declarations
-	for _, decl := range file.Decls {
-		switch d := decl.(type) {
+	// Initialize the registry/store containing
+	// each function and field concurrency contract
+	registry := analysis.NewContractRegistry()
 
-		// look at function declaration
-		case *ast.FuncDecl:
-			annotations := parseAnnotations(d.Doc)
-			if len(annotations) > 0 {
-				fmt.Printf("Function %s has annotations: %v\n", d.Name.Name, annotations)
-			}
-
-		// look at type declarations (guarded_by syntax)
-		case *ast.GenDecl:
-			for _, spec := range d.Specs {
-				ts, ok := spec.(*ast.TypeSpec)
-				if !ok {
-					continue
-				}
-				st, ok := ts.Type.(*ast.StructType)
-				if !ok {
-					continue
-				}
-
-				for _, field := range st.Fields.List {
-					annotations := parseAnnotations(field.Doc)
-					if len(annotations) > 0 {
-						for _, name := range field.Names {
-							fmt.Printf("Field %s has annotations: %v\n", name.Name, annotations)
-						}
-					}
-				}
-			}
-		}
+	v := &analysis.Visitor{
+		Fset:     fset,
+		Registry: registry,
 	}
+
+	ast.Walk(v, file)
+
+	v.Registry.PrintContractRegistry(fset)
 }
