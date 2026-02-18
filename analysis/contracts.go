@@ -3,6 +3,7 @@ package analysis
 import (
 	"fmt"
 	"go/token"
+	"gotsan/utils"
 	"sort"
 	"strings"
 )
@@ -21,8 +22,8 @@ type FunctionContract struct {
 	Pos          token.Pos
 }
 
-// Represents data field guarded by a mutex
-type FieldGuard struct {
+// Represents data field (within a struct) or a variable guarded by a mutex
+type DataInvariant struct {
 	MutexName string
 	Pos       token.Pos
 }
@@ -32,13 +33,13 @@ type FieldGuard struct {
 // SSA/CFG Analyzer to verify lock patterns
 type ContractRegistry struct {
 	Functions map[string]*FunctionContract
-	Guards    map[string]*FieldGuard
+	Data      map[string]*DataInvariant
 }
 
 func NewContractRegistry() *ContractRegistry {
 	return &ContractRegistry{
 		Functions: make(map[string]*FunctionContract),
-		Guards:    make(map[string]*FieldGuard),
+		Data:      make(map[string]*DataInvariant),
 	}
 }
 
@@ -69,7 +70,7 @@ func (cr *ContractRegistry) PrintContractRegistry(fset *token.FileSet) {
 				continue
 			}
 
-			posStr := formatPos(fset, fc.Pos)
+			posStr := utils.FormatPos(fset, fc.Pos)
 			if posStr != "" {
 				fmt.Printf("%s @ %s\n", fn, posStr)
 			} else {
@@ -87,26 +88,26 @@ func (cr *ContractRegistry) PrintContractRegistry(fset *token.FileSet) {
 		}
 	}
 
-	// -------- Guards --------
-	fmt.Println("\n-- Field Guards --")
+	// -------- Data Invariants --------
+	fmt.Println("\n-- Data Invariants/Guards --")
 
-	if len(cr.Guards) == 0 {
+	if len(cr.Data) == 0 {
 		fmt.Println("(none)")
 	} else {
-		fieldNames := make([]string, 0, len(cr.Guards))
-		for name := range cr.Guards {
+		fieldNames := make([]string, 0, len(cr.Data))
+		for name := range cr.Data {
 			fieldNames = append(fieldNames, name)
 		}
 		sort.Strings(fieldNames)
 
 		for _, field := range fieldNames {
-			g := cr.Guards[field]
+			g := cr.Data[field]
 			if g == nil {
 				fmt.Printf("%s: <nil>\n", field)
 				continue
 			}
 
-			posStr := formatPos(fset, g.Pos)
+			posStr := utils.FormatPos(fset, g.Pos)
 			if posStr != "" {
 				fmt.Printf("%s guarded by %s @ %s\n", field, g.MutexName, posStr)
 			} else {
@@ -116,13 +117,4 @@ func (cr *ContractRegistry) PrintContractRegistry(fset *token.FileSet) {
 	}
 
 	fmt.Println(strings.Repeat("=", 26))
-}
-
-func formatPos(fset *token.FileSet, pos token.Pos) string {
-	if fset == nil || pos == token.NoPos {
-		return ""
-	}
-	p := fset.Position(pos)
-	// file:line:col
-	return fmt.Sprintf("%s:%d:%d", p.Filename, p.Line, p.Column)
 }

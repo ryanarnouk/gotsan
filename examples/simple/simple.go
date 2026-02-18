@@ -2,16 +2,36 @@ package simple
 
 import "sync"
 
-// A simple example of a bank account balance guarded by Mutex "mu" with corresponding annotations
+// A simple example of a bank manager guarded by Mutex "mu" with corresponding annotations
 // added to the program. Comments indicate areas that should eventually flag a warning when the
 // the program is completed.
 
+var (
+	globalMu  sync.Mutex
+	globalMu2 sync.Mutex
+)
+
+// @guarded_by(globalMu)
+var (
+	globalBalance int
+	globalCount   int
+)
+
+var globalFlag bool // @guarded_by(globalMu2)
+
 // Account represents a bank account.
 type Account struct {
-	mu sync.Mutex
+	mu  sync.Mutex
+	mu2 sync.Mutex
 
 	// @guarded_by(mu)
 	balance int
+
+	accountNumber int //@guarded_by(mu2)
+
+	// A warning of an annotation that does not work in this context
+	// @requires(mu)
+	badExample int
 }
 
 // depositUnsafe adds money to balance without acquiring a lock.

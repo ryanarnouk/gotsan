@@ -8,7 +8,8 @@ import (
 type AnnotationKind int
 
 const (
-	Requires AnnotationKind = iota
+	None AnnotationKind = iota
+	Requires
 	Acquires
 	Returns
 	GuardedBy
