@@ -9,23 +9,7 @@ import (
 	"gotsan/analysis"
 	"log"
 	"os"
-	"strings"
 )
-
-// parseAnnotations scans a CommentGroup for a lock annotation
-func parseAnnotations(cg *ast.CommentGroup) []string {
-	if cg == nil {
-		return nil
-	}
-	var annotations []string
-	for _, c := range cg.List {
-		text := strings.TrimSpace(strings.TrimPrefix(c.Text, "//"))
-		if strings.HasPrefix(text, "@") {
-			annotations = append(annotations, text)
-		}
-	}
-	return annotations
-}
 
 func main() {
 	// Parse the command line arg
