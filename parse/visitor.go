@@ -1,9 +1,10 @@
-package analysis
+package parse
 
 import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"gotsan/ir"
 	"gotsan/utils"
 	"strings"
 )
@@ -11,7 +12,7 @@ import (
 // Implements the ast.Visitor interface
 type Visitor struct {
 	Fset     *token.FileSet
-	Registry *ContractRegistry
+	Registry *ir.ContractRegistry
 }
 
 // Given a CommentGroup AST type, loop through and return all discovered
@@ -24,7 +25,7 @@ func (v *Visitor) parseAnnotations(groups ...*ast.CommentGroup) []Annotation {
 		}
 		for _, c := range group.List {
 			ann, err := ParseAnnotation(c.Text)
-			if err == nil && ann.Kind != None {
+			if err == nil && ann.Kind != ir.None {
 				discovered = append(discovered, ann)
 			}
 		}
@@ -35,7 +36,7 @@ func (v *Visitor) parseAnnotations(groups ...*ast.CommentGroup) []Annotation {
 // Register a list of annotations as data invariants
 func (v *Visitor) registerDataInvariants(annotations []Annotation, names []*ast.Ident, prefix string, pos token.Pos) {
 	for _, ann := range annotations {
-		if ann.Kind != GuardedBy {
+		if ann.Kind != ir.GuardedBy {
 			fmt.Printf("[WARNING]: unexpected annotation %v at %s\n", ann.Kind.String(), utils.FormatPos(v.Fset, pos))
 			continue
 		}
@@ -47,7 +48,7 @@ func (v *Visitor) registerDataInvariants(annotations []Annotation, names []*ast.
 			}
 
 			for _, param := range ann.Params {
-				v.Registry.Data[key] = &DataInvariant{
+				v.Registry.Data[key] = &ir.DataInvariant{
 					MutexName: param,
 					Pos:       pos,
 				}
@@ -56,15 +57,15 @@ func (v *Visitor) registerDataInvariants(annotations []Annotation, names []*ast.
 	}
 }
 
-func (v *Visitor) handleFuncDecl(n *ast.FuncDecl) *FunctionContract {
-	contract := &FunctionContract{
+func (v *Visitor) handleFuncDecl(n *ast.FuncDecl) *ir.FunctionContract {
+	contract := &ir.FunctionContract{
 		Pos: n.Pos(),
 	}
 
 	// Doc refers to function documentation comments
 	for _, annotation := range v.parseAnnotations(n.Doc) {
 		for _, param := range annotation.Params {
-			req := Requirement{
+			req := ir.Requirement{
 				Kind:   annotation.Kind,
 				Target: strings.TrimSpace(param),
 			}

@@ -1,4 +1,4 @@
-package analysis
+package ir
 
 import (
 	"fmt"

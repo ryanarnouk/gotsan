@@ -6,10 +6,12 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"golang.org/x/tools/go/packages"
-	"gotsan/analysis"
+	"gotsan/ir"
+	"gotsan/parse"
 	"log"
 	"os"
+
+	"golang.org/x/tools/go/packages"
 )
 
 func main() {
@@ -35,9 +37,9 @@ func main() {
 
 		// Initialize the registry/store containing
 		// each function and field concurrency contract
-		registry := analysis.NewContractRegistry()
+		registry := ir.NewContractRegistry()
 
-		v := &analysis.Visitor{
+		v := &parse.Visitor{
 			Fset:     fset,
 			Registry: registry,
 		}
@@ -78,12 +80,12 @@ func main() {
 	}
 
 	// One registry for the whole run (you could also do one per package)
-	registry := analysis.NewContractRegistry()
+	registry := ir.NewContractRegistry()
 
 	// Walk every file in every loaded package
 	for _, pkg := range pkgs {
 		for _, file := range pkg.Syntax {
-			v := &analysis.Visitor{
+			v := &parse.Visitor{
 				Fset:     fset,
 				Registry: registry,
 			}

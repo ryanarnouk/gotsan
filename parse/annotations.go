@@ -1,30 +1,14 @@
-package analysis
+package parse
 
 import (
 	"fmt"
+	"gotsan/ir"
 	"strings"
 )
 
-type AnnotationKind int
-
-const (
-	None AnnotationKind = iota
-	Requires
-	Acquires
-	Returns
-	GuardedBy
-)
-
 type Annotation struct {
-	Kind   AnnotationKind
+	Kind   ir.AnnotationKind
 	Params []string
-}
-
-var annotationKindMap = map[string]AnnotationKind{
-	"requires":   Requires,
-	"acquires":   Acquires,
-	"returns":    Returns,
-	"guarded_by": GuardedBy,
 }
 
 // Check if the comment is an annotation, returning true and returning the extracted value, such that:
@@ -68,7 +52,7 @@ func parseAnnotation(annotation string) (Annotation, error) {
 	}
 
 	return Annotation{
-		Kind:   annotationKindMap[annotationName],
+		Kind:   ir.AnnotationKindMap[annotationName],
 		Params: params,
 	}, nil
 }
@@ -80,19 +64,4 @@ func ParseAnnotation(commentText string) (Annotation, error) {
 	}
 
 	return parseAnnotation(annotation)
-}
-
-func (k AnnotationKind) String() string {
-	switch k {
-	case Requires:
-		return "Requires"
-	case Acquires:
-		return "Acquires"
-	case Returns:
-		return "Returns"
-	case GuardedBy:
-		return "GuardedBy"
-	default:
-		return fmt.Sprintf("AnnotationKind(%d)", int(k))
-	}
 }

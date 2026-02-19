@@ -1,7 +1,7 @@
-package analysis
+package parse
 
 import (
-	"go/token"
+	"gotsan/ir"
 	"reflect"
 	"testing"
 )
@@ -10,45 +10,44 @@ func TestParseAnnotation(t *testing.T) {
 	tests := []struct {
 		name       string
 		comment    string
-		wantKind   AnnotationKind
+		wantKind   ir.AnnotationKind
 		wantParams []string
 	}{
 		{
 			name:       "Simple Requires",
 			comment:    "//@requires(mu)",
-			wantKind:   Requires,
+			wantKind:   ir.Requires,
 			wantParams: []string{"mu"},
 		},
 		{
 			name:       "Multiple Params",
 			comment:    "//@requires(mu1, mu2)",
-			wantKind:   Requires,
+			wantKind:   ir.Requires,
 			wantParams: []string{"mu1", "mu2"},
 		},
 		{
 			name:       "Spaces in Params",
 			comment:    "/*@acquires( lock_a , lock_b ) */",
-			wantKind:   Acquires,
+			wantKind:   ir.Acquires,
 			wantParams: []string{"lock_a", "lock_b"},
 		},
 		{
 			name:       "Guarded By",
 			comment:    "//@guarded_by(state_mu)",
-			wantKind:   GuardedBy,
+			wantKind:   ir.GuardedBy,
 			wantParams: []string{"state_mu"},
 		},
 		{
 			name:       "Mixed Case Keyword",
-			comment:    "// @Requires(mu)",
-			wantKind:   Requires,
+			comment:    "// @requires(mu)",
+			wantKind:   ir.Requires,
 			wantParams: []string{"mu"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Using token.NoPos for tests as we aren't verifying line numbers here
-			actual, err := ParseAnnotation(tt.comment, token.NoPos)
+			actual, err := ParseAnnotation(tt.comment)
 			if err != nil {
 				t.Errorf("ParseAnnotation() error = %v", err)
 				return
