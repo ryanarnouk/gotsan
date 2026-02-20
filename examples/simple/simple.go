@@ -48,6 +48,11 @@ func (a *Account) Deposit(amount int) {
 	a.mu.Lock()         // acquires the lock
 	defer a.mu.Unlock() // releases on function exit
 
+	side_effect := func() {
+		// Do something
+	}
+	side_effect()
+
 	a.depositUnsafe(amount)
 }
 
@@ -82,4 +87,33 @@ func (a *Account) BadReadBalance() int {
 func (a *Account) BadCallDepositUnsafe(amount int) {
 	// Forgot to lock before calling depositUnsafe
 	a.depositUnsafe(amount) // should trigger @requires warning
+}
+
+// @requires(mu)
+func (a *Account) Withdraw(amount int) {
+	if a.balance < 0 {
+		return
+	} else {
+		a.balance -= amount
+	}
+}
+
+// An example of using an alias for the lock name and ensuring
+// that by using the SSA form, this can be tracked
+// @acquires(mu)
+// @returns(mu)
+func (a *Account) WithdrawWithAliasingLock(amount int) {
+	alias := &a.mu
+	alias.Lock()
+
+	if a.balance < 0 {
+		return
+	} else {
+		a.balance -= amount
+	}
+}
+
+func main() {
+	account := Account{}
+	account.depositUnsafe(10)
 }

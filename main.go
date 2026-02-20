@@ -4,14 +4,16 @@ import (
 	"flag"
 	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/token"
+	"gotsan/analyzer"
 	"gotsan/ir"
 	"gotsan/parse"
 	"log"
 	"os"
 
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 func main() {
@@ -27,59 +29,29 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Single file
-	if *filePath != "" {
-		fset := token.NewFileSet()
-		file, err := parser.ParseFile(fset, *filePath, nil, parser.ParseComments)
-		if err != nil {
-			log.Fatalf("failed to parse file: %v", err)
-		}
-
-		// Initialize the registry/store containing
-		// each function and field concurrency contract
-		registry := ir.NewContractRegistry()
-
-		v := &parse.Visitor{
-			Fset:     fset,
-			Registry: registry,
-		}
-
-		ast.Walk(v, file)
-
-		v.Registry.PrintContractRegistry(fset)
-		return
-	}
-
-	// Whole package/module
 	fset := token.NewFileSet()
-
 	cfg := &packages.Config{
-		Mode: packages.NeedName |
-			packages.NeedFiles |
-			packages.NeedSyntax |
-			packages.NeedTypes |
-			packages.NeedTypesInfo,
+		Mode: packages.LoadSyntax,
 		Fset: fset,
 	}
 
-	pkgs, err := packages.Load(cfg, *pkgPattern)
+	pattern := *pkgPattern
+	if *filePath != "" {
+		// If the user specified a single file, make that the pattern for the package
+		pattern = *filePath
+	}
+
+	pkgs, err := packages.Load(cfg, pattern)
 	if err != nil {
 		log.Fatalf("failed to load packages: %v", err)
 	}
 
-	// packages.Load can return packages with Errors set
-	var hadErrors bool
-	for _, pkg := range pkgs {
-		for _, e := range pkg.Errors {
-			hadErrors = true
-			fmt.Fprintf(os.Stderr, "load error: %s\n", e)
-		}
-	}
-	if hadErrors {
+	if packages.PrintErrors(pkgs) > 0 {
 		os.Exit(1)
 	}
 
-	// One registry for the whole run (you could also do one per package)
+	// 1. Annotation Discovery Phase (AST)
+	// One registry is used for the entire run
 	registry := ir.NewContractRegistry()
 
 	// Walk every file in every loaded package
@@ -94,4 +66,17 @@ func main() {
 	}
 
 	registry.PrintContractRegistry(fset)
+
+	// 2. Analysis Phase
+	prog, ssaPkgs := ssautil.Packages(pkgs, ssa.BuilderMode(0))
+	prog.Build()
+
+	for _, ssaPkg := range ssaPkgs {
+		if ssaPkg == nil {
+			continue
+		}
+
+		analyzer.Run(ssaPkg, registry)
+	}
+
 }
