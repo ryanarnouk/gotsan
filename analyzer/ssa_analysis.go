@@ -9,6 +9,25 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Perform analysis for a given function using depth first search
+// to uncover every possible program path
+func functionDepthFirstSearch(fn *ssa.Function) {
+	stack := []*ssa.BasicBlock{fn.Blocks[0]}
+
+	for len(stack) > 0 {
+		curr := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		// TODO: Lockset analysis
+		utils.PrintSSABlock(curr)
+
+		// Add successive blocks to the stack
+		for _, succ := range curr.Succs {
+			stack = append(stack, succ)
+		}
+	}
+}
+
 // Analyze a function, recursively handling any anonymous functinos
 // within it's body
 func analyzeFunction(fn *ssa.Function, registry *ir.ContractRegistry) {
@@ -17,9 +36,11 @@ func analyzeFunction(fn *ssa.Function, registry *ir.ContractRegistry) {
 	}
 
 	// TODO: Perform SSA/CFG analysis for this function
+	// Setup initial state
+	contract := registry.Functions[fn.Name()]
 
-	fmt.Println("Function analyzed: ", fn.Name(), registry.Functions[fn.Name()])
-	utils.PrintFunctionBlocks(fn)
+	fmt.Println("Function analyzed: ", fn.Name(), contract)
+	functionDepthFirstSearch(fn)
 
 	// Recurse through any anonymous functions
 	for _, anon := range fn.AnonFuncs {
