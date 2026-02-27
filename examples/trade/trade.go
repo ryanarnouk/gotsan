@@ -1,4 +1,4 @@
-package trade_test
+package main
 
 import (
 	"context"

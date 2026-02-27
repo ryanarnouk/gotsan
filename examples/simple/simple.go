@@ -49,11 +49,24 @@ func (a *Account) Deposit(amount int) {
 	defer a.mu.Unlock() // releases on function exit
 
 	side_effect := func() {
-		// Do something
 	}
 	side_effect()
 
 	a.depositUnsafe(amount)
+}
+
+// Deposit within an anonymous function that lets go of the lock prematurely and calls depositUnsafe
+// @acquires(mu)
+func (a *Account) DepositAnonFunc(amount int) {
+	a.mu.Lock()         // acquires the lock
+	defer a.mu.Unlock() // releases on function exit
+
+	side_effect := func() {
+		a.mu.Unlock()
+		a.depositUnsafe(amount)
+	}
+
+	side_effect()
 }
 
 // DepositAndHold safely adds money and returns while keeping the lock held.

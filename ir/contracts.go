@@ -6,6 +6,7 @@ import (
 	"gotsan/utils"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // Represents a specific lock invariant
@@ -41,6 +42,46 @@ func NewContractRegistry() *ContractRegistry {
 		Functions: make(map[string]*FunctionContract),
 		Data:      make(map[string]*DataInvariant),
 	}
+}
+
+func MakeFunctionKey(name string, receiverType string) string {
+	if receiverType == "" {
+		return name
+	}
+	return receiverType + "." + name
+}
+
+func NormalizeTypeName(typeName string) string {
+	if typeName == "" {
+		return ""
+	}
+
+	var out strings.Builder
+	var token strings.Builder
+	flush := func() {
+		if token.Len() == 0 {
+			return
+		}
+		t := token.String()
+		if strings.Contains(t, ".") {
+			t = t[strings.LastIndex(t, ".")+1:]
+		}
+		out.WriteString(t)
+		token.Reset()
+	}
+
+	for _, r := range typeName {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '.' {
+			token.WriteRune(r)
+			continue
+		}
+
+		flush()
+		out.WriteRune(r)
+	}
+	flush()
+
+	return out.String()
 }
 
 func (cr *ContractRegistry) PrintContractRegistry(fset *token.FileSet) {
