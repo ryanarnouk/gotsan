@@ -103,74 +103,104 @@ func traceToObject(val ssa.Value) types.Object {
 // Resolve a mutex variable name in an annotation to the corresponding assignment
 // in the SSA blocks
 func resolveObjectInScope(fn *ssa.Function, targetName string) types.Object {
-	if targetName == "" {
-		return nil
-	}
+    if targetName == "" {
+        return nil
+    }
 
-	parts := strings.Split(targetName, ".")
-	if len(parts) == 0 {
-		return nil
-	}
+    parts := strings.Split(targetName, ".")
+    if len(parts) > 1 {
+        return resolvePathInScope(fn, parts)
+    }
 
-	if len(parts) > 1 {
-		first := parts[0]
+	// Handle single-name resolution
+    return resolveSingleName(fn, targetName)
 
-		for _, p := range fn.Params {
-			if p.Name() == first {
-				return findFieldPathInType(p.Type(), parts[1:])
-			}
-		}
+}
 
-		if len(fn.Params) > 0 {
-			recv := fn.Params[0]
-			if recv.Name() == first {
-				return findFieldPathInType(recv.Type(), parts[1:])
-			}
+// resolvePathInScope handles names with dots (e.g., "a.mu" or "mu.lock")
+func resolvePathInScope(fn *ssa.Function, parts []string) types.Object {
+    first := parts[0]
 
-			return findFieldPathInType(recv.Type(), parts)
-		}
+    // 1. Check if the first part is a parameter (includes receiver)
+    for _, p := range fn.Params {
+        if p.Name() == first {
+            return findFieldPathInType(p.Type(), parts[1:])
+        }
+    }
 
-		return nil
-	}
+    // 2. Implicit receiver check (the first part might be a field of the receiver)
+    if len(fn.Params) > 0 {
+        recv := fn.Params[0]
+        // Case: "field.subfield" where "field" is on the receiver
+        return findFieldPathInType(recv.Type(), parts)
+    }
 
-	targetName = parts[0]
+    return nil
+}
 
-	// 1. Check Function Parameters (this includes the receiver 'a' for methods)
-	// If the annotation says 'mu' and the param is 'mu', we found it.
-	for _, p := range fn.Params {
-		if p.Name() == targetName {
-			return p.Object()
-		}
-	}
+// resolveSingleName handles simple identifiers (e.g., "mu")
+func resolveSingleName(fn *ssa.Function, name string) types.Object {
+    // 1. Check Parameters
+    if obj := findInParams(fn, name); obj != nil {
+        return obj
+    }
 
-	// 2. Check Receiver Fields (The "Implicit This" Case)
-	// If the function is (a *Account) and the annotation is 'mu',
-	// the user likely means 'a.mu'.
-	if len(fn.Params) > 0 {
-		recv := fn.Params[0] // Standard Go SSA: first param is the receiver
-		if ptr, ok := recv.Type().Underlying().(*types.Pointer); ok {
-			if strct, ok := ptr.Elem().Underlying().(*types.Struct); ok {
-				for i := 0; i < strct.NumFields(); i++ {
-					field := strct.Field(i)
-					if field.Name() == targetName {
-						return field
-					}
-				}
-			}
-		}
-	}
+    // 2. Check Implicit Receiver Fields
+    if obj := findInReceiverFields(fn, name); obj != nil {
+        return obj
+    }
 
-	// 3. Check Package-Level Globals
-	// If 'mu' isn't local or in the struct, it might be a global mutex.
-	if fn.Pkg != nil {
-		if member, ok := fn.Pkg.Members[targetName]; ok {
-			if obj := member.Object(); obj != nil {
-				return obj
-			}
-		}
-	}
+    // 3. Check Package Globals
+    return findInPackageGlobals(fn, name)
+}
 
-	return nil
+func findInParams(fn *ssa.Function, name string) types.Object {
+    for _, p := range fn.Params {
+        if p.Name() == name {
+            return p.Object()
+        }
+    }
+    return nil
+}
+
+func findInReceiverFields(fn *ssa.Function, name string) types.Object {
+    if len(fn.Params) == 0 {
+        return nil
+    }
+
+    // Use a helper to peel away pointers and find the underlying struct
+    strct, ok := getUnderlyingStruct(fn.Params[0].Type())
+    if !ok {
+        return nil
+    }
+
+    for i := 0; i < strct.NumFields(); i++ {
+        field := strct.Field(i)
+        if field.Name() == name {
+            return field
+        }
+    }
+    return nil
+}
+
+func findInPackageGlobals(fn *ssa.Function, name string) types.Object {
+    if fn.Pkg != nil {
+        if member, ok := fn.Pkg.Members[name]; ok {
+            return member.Object()
+        }
+    }
+    return nil
+}
+
+
+// Helper to handle the pointer/struct traversal logic
+func getUnderlyingStruct(t types.Type) (*types.Struct, bool) {
+    curr := t.Underlying()
+    if ptr, ok := curr.(*types.Pointer); ok {
+        curr = ptr.Elem().Underlying()
+    }
+    strct, ok := curr.(*types.Struct)
+    return strct, ok
 }
 
 func findFieldPathInType(typ types.Type, fieldPath []string) types.Object {
