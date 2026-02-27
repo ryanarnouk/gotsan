@@ -325,42 +325,6 @@ func contractForFunction(fn *ssa.Function, registry *ir.ContractRegistry) *ir.Fu
 	return nil
 }
 
-type AnalysisState struct {
-	HeldLocks       LockSet
-	DeferredLocks   LockSet
-	DeferredUnlocks LockSet
-}
-
-func newAnalysisState(initial LockSet) AnalysisState {
-	return AnalysisState{
-		HeldLocks:       initial.Copy(),
-		DeferredLocks:   make(LockSet),
-		DeferredUnlocks: make(LockSet),
-	}
-}
-
-func (s AnalysisState) Copy() AnalysisState {
-	return AnalysisState{
-		HeldLocks:       s.HeldLocks.Copy(),
-		DeferredLocks:   s.DeferredLocks.Copy(),
-		DeferredUnlocks: s.DeferredUnlocks.Copy(),
-	}
-}
-
-func (s AnalysisState) Equals(other AnalysisState) bool {
-	return s.HeldLocks.Equals(other.HeldLocks) &&
-		s.DeferredLocks.Equals(other.DeferredLocks) &&
-		s.DeferredUnlocks.Equals(other.DeferredUnlocks)
-}
-
-func (s AnalysisState) Intersect(other AnalysisState) AnalysisState {
-	return AnalysisState{
-		HeldLocks:       s.HeldLocks.Intersect(other.HeldLocks),
-		DeferredLocks:   s.DeferredLocks.Intersect(other.DeferredLocks),
-		DeferredUnlocks: s.DeferredUnlocks.Intersect(other.DeferredUnlocks),
-	}
-}
-
 func applyDeferredEffects(state *AnalysisState) {
 	for obj := range state.DeferredLocks {
 		state.HeldLocks[obj] = true
@@ -424,63 +388,66 @@ func analyzeInstructions(instrs []ssa.Instruction, state *AnalysisState, fn *ssa
 	}
 }
 
+func updateSuccessorState(
+	succ *ssa.BasicBlock,
+	current AnalysisState,
+	blockEntryStates map[int]AnalysisState,
+	worklist *worklist,
+) {
+	existing, seen := blockEntryStates[succ.Index]
+
+	if !seen {
+		blockEntryStates[succ.Index] = current.Copy()
+		worklist.Push(succ)
+		return
+	}
+
+	merged := existing.Intersect(current)
+	if !existing.Equals(merged) {
+		blockEntryStates[succ.Index] = merged
+		worklist.Push(succ)
+	}
+}
+
 // Perform analysis for a given function using depth first search
 // to uncover every possible program path
-func functionDepthFirstSearch(fn *ssa.Function, initialLS LockSet, registry *ir.ContractRegistry) {
+func functionDepthFirstSearch(fn *ssa.Function, initialLockset LockSet, registry *ir.ContractRegistry) {
 	if len(fn.Blocks) == 0 {
 		return
 	}
 
-	blockEntryStates := make(map[int]AnalysisState)
-	worklist := []*ssa.BasicBlock{fn.Blocks[0]}
-	inQueue := map[int]bool{fn.Blocks[0].Index: true}
-	blockEntryStates[fn.Blocks[0].Index] = newAnalysisState(initialLS)
+	entry := fn.Blocks[0]
+	blockEntryStates := map[int]AnalysisState{
+		entry.Index: newAnalysisState(initialLockset),
+	}
 
-	for len(worklist) > 0 {
-		curr := worklist[0]
-		worklist = worklist[1:]
-		inQueue[curr.Index] = false
+	worklist := newBlockWorklist(entry)
+
+	for !worklist.Empty() {
+		curr := worklist.Pop()
 
 		entryState := blockEntryStates[curr.Index]
 		currentState := entryState.Copy()
-		analyzeInstructions(curr.Instrs, &currentState, fn, registry)
 
+		analyzeInstructions(curr.Instrs, &currentState, fn, registry)
 		utils.PrintSSABlock(curr)
 
 		for _, succ := range curr.Succs {
-			existingState, seen := blockEntryStates[succ.Index]
-
-			if !seen {
-				blockEntryStates[succ.Index] = currentState.Copy()
-				if !inQueue[succ.Index] {
-					worklist = append(worklist, succ)
-					inQueue[succ.Index] = true
-				}
-				continue
-			}
-
-			merged := existingState.Intersect(currentState)
-			if !existingState.Equals(merged) {
-				blockEntryStates[succ.Index] = merged
-				if !inQueue[succ.Index] {
-					worklist = append(worklist, succ)
-					inQueue[succ.Index] = true
-				}
-			}
+			updateSuccessorState(
+				succ,
+				currentState,
+				blockEntryStates,
+				worklist,
+			)
 		}
 	}
 }
 
-// Analyze a function, recursively handling any anonymous functinos
-// within it's body
-func analyzeFunction(fn *ssa.Function, registry *ir.ContractRegistry) {
-	if fn == nil || len(fn.Blocks) == 0 {
-		return
-	}
-
+// Creates the initial lockset for a function, according to the Requires
+// tag that is provided
+func createInitialLockset(fn *ssa.Function, contract *ir.FunctionContract) LockSet {
 	// Setup initial state
 	initialLockset := make(LockSet)
-	contract := contractForFunction(fn, registry)
 
 	if contract != nil {
 		for _, expectation := range contract.Expectations {
@@ -497,6 +464,20 @@ func analyzeFunction(fn *ssa.Function, registry *ir.ContractRegistry) {
 			}
 		}
 	}
+
+	return initialLockset
+}
+
+// Analyze a function, recursively handling any anonymous functions
+// within it's body
+func analyzeFunction(fn *ssa.Function, registry *ir.ContractRegistry) {
+	if fn == nil || len(fn.Blocks) == 0 {
+		return
+	}
+
+	// Setup initial state
+	contract := contractForFunction(fn, registry)
+	initialLockset := createInitialLockset(fn, contract)
 
 	fmt.Println("Function analyzed: ", fn.Name(), contract)
 	// Begin DFS through function
