@@ -1,14 +1,39 @@
 package analyzer
 
 import (
-	"fmt"
+	"go/token"
 	"go/types"
 	"gotsan/ir"
 	"gotsan/utils"
+	"gotsan/utils/logger"
+	"gotsan/utils/report"
 	"strings"
 
 	"golang.org/x/tools/go/ssa"
 )
+
+func reportMissingLock(
+	msg *ssa.Call,
+	callee *ssa.Function,
+	target string,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if reporter == nil || fset == nil {
+		logger.Infof("ERROR: Call to %s requires lock %s, but it's not held\n", callee.Name(), target)
+		return
+	}
+
+	position := fset.Position(msg.Pos())
+	reporter.Warn(report.Diagnostic{
+		Pos:      msg.Pos(),
+		File:     position.Filename,
+		Line:     position.Line,
+		Column:   position.Column,
+		Severity: "warning",
+		Message:  "Call to " + callee.Name() + " requires lock " + target + ", but it's not held",
+	})
+}
 
 func isLockCallCommon(common *ssa.CallCommon) bool {
 	if common == nil {
@@ -103,104 +128,103 @@ func traceToObject(val ssa.Value) types.Object {
 // Resolve a mutex variable name in an annotation to the corresponding assignment
 // in the SSA blocks
 func resolveObjectInScope(fn *ssa.Function, targetName string) types.Object {
-    if targetName == "" {
-        return nil
-    }
+	if targetName == "" {
+		return nil
+	}
 
-    parts := strings.Split(targetName, ".")
-    if len(parts) > 1 {
-        return resolvePathInScope(fn, parts)
-    }
+	parts := strings.Split(targetName, ".")
+	if len(parts) > 1 {
+		return resolvePathInScope(fn, parts)
+	}
 
 	// Handle single-name resolution
-    return resolveSingleName(fn, targetName)
+	return resolveSingleName(fn, targetName)
 
 }
 
 // resolvePathInScope handles names with dots (e.g., "a.mu" or "mu.lock")
 func resolvePathInScope(fn *ssa.Function, parts []string) types.Object {
-    first := parts[0]
+	first := parts[0]
 
-    // 1. Check if the first part is a parameter (includes receiver)
-    for _, p := range fn.Params {
-        if p.Name() == first {
-            return findFieldPathInType(p.Type(), parts[1:])
-        }
-    }
+	// 1. Check if the first part is a parameter (includes receiver)
+	for _, p := range fn.Params {
+		if p.Name() == first {
+			return findFieldPathInType(p.Type(), parts[1:])
+		}
+	}
 
-    // 2. Implicit receiver check (the first part might be a field of the receiver)
-    if len(fn.Params) > 0 {
-        recv := fn.Params[0]
-        // Case: "field.subfield" where "field" is on the receiver
-        return findFieldPathInType(recv.Type(), parts)
-    }
+	// 2. Implicit receiver check (the first part might be a field of the receiver)
+	if len(fn.Params) > 0 {
+		recv := fn.Params[0]
+		// Case: "field.subfield" where "field" is on the receiver
+		return findFieldPathInType(recv.Type(), parts)
+	}
 
-    return nil
+	return nil
 }
 
 // resolveSingleName handles simple identifiers (e.g., "mu")
 func resolveSingleName(fn *ssa.Function, name string) types.Object {
-    // 1. Check Parameters
-    if obj := findInParams(fn, name); obj != nil {
-        return obj
-    }
+	// 1. Check Parameters
+	if obj := findInParams(fn, name); obj != nil {
+		return obj
+	}
 
-    // 2. Check Implicit Receiver Fields
-    if obj := findInReceiverFields(fn, name); obj != nil {
-        return obj
-    }
+	// 2. Check Implicit Receiver Fields
+	if obj := findInReceiverFields(fn, name); obj != nil {
+		return obj
+	}
 
-    // 3. Check Package Globals
-    return findInPackageGlobals(fn, name)
+	// 3. Check Package Globals
+	return findInPackageGlobals(fn, name)
 }
 
 func findInParams(fn *ssa.Function, name string) types.Object {
-    for _, p := range fn.Params {
-        if p.Name() == name {
-            return p.Object()
-        }
-    }
-    return nil
+	for _, p := range fn.Params {
+		if p.Name() == name {
+			return p.Object()
+		}
+	}
+	return nil
 }
 
 func findInReceiverFields(fn *ssa.Function, name string) types.Object {
-    if len(fn.Params) == 0 {
-        return nil
-    }
+	if len(fn.Params) == 0 {
+		return nil
+	}
 
-    // Use a helper to peel away pointers and find the underlying struct
-    strct, ok := getUnderlyingStruct(fn.Params[0].Type())
-    if !ok {
-        return nil
-    }
+	// Use a helper to peel away pointers and find the underlying struct
+	strct, ok := getUnderlyingStruct(fn.Params[0].Type())
+	if !ok {
+		return nil
+	}
 
-    for i := 0; i < strct.NumFields(); i++ {
-        field := strct.Field(i)
-        if field.Name() == name {
-            return field
-        }
-    }
-    return nil
+	for i := 0; i < strct.NumFields(); i++ {
+		field := strct.Field(i)
+		if field.Name() == name {
+			return field
+		}
+	}
+	return nil
 }
 
 func findInPackageGlobals(fn *ssa.Function, name string) types.Object {
-    if fn.Pkg != nil {
-        if member, ok := fn.Pkg.Members[name]; ok {
-            return member.Object()
-        }
-    }
-    return nil
+	if fn.Pkg != nil {
+		if member, ok := fn.Pkg.Members[name]; ok {
+			return member.Object()
+		}
+	}
+	return nil
 }
-
 
 // Helper to handle the pointer/struct traversal logic
 func getUnderlyingStruct(t types.Type) (*types.Struct, bool) {
-    curr := t.Underlying()
-    if ptr, ok := curr.(*types.Pointer); ok {
-        curr = ptr.Elem().Underlying()
-    }
-    strct, ok := curr.(*types.Struct)
-    return strct, ok
+	curr := t.Underlying()
+	if ptr, ok := curr.(*types.Pointer); ok {
+		curr = ptr.Elem().Underlying()
+	}
+	strct, ok := curr.(*types.Struct)
+	return strct, ok
 }
 
 func findFieldPathInType(typ types.Type, fieldPath []string) types.Object {
@@ -355,6 +379,42 @@ func contractForFunction(fn *ssa.Function, registry *ir.ContractRegistry) *ir.Fu
 	return nil
 }
 
+func handleCallInstruction(
+	msg *ssa.Call,
+	state *AnalysisState,
+	registry *ir.ContractRegistry,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if isLockCall(msg) {
+		obj := getLockObject(msg)
+		if obj != nil {
+			state.HeldLocks[obj] = true
+		}
+	} else if isUnlockCall(msg) {
+		obj := getLockObject(msg)
+		if obj != nil {
+			delete(state.HeldLocks, obj)
+		}
+	} else {
+		callee := msg.Call.StaticCallee()
+		if callee != nil {
+			contract := contractForFunction(callee, registry)
+			if contract != nil {
+				for _, exp := range contract.Expectations {
+					if exp.Kind == ir.Requires {
+						// Map the requirement to the caller's objects
+						reqObj := resolveObjectAtCallSite(msg, exp.Target)
+						if !state.HeldLocks[reqObj] {
+							reportMissingLock(msg, callee, exp.Target, reporter, fset)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func applyDeferredEffects(state *AnalysisState) {
 	for obj := range state.DeferredLocks {
 		state.HeldLocks[obj] = true
@@ -366,52 +426,36 @@ func applyDeferredEffects(state *AnalysisState) {
 	state.DeferredUnlocks = make(LockSet)
 }
 
+// Add deferred statements to the state, such that they are later run when the function
+// is being returned (or when ssa.RunDefers exists in the SSA)
+func registerDeferInstruction(msg *ssa.Defer, state *AnalysisState) {
+	if isLockCallCommon(&msg.Call) {
+		obj := getLockObjectFromCallCommon(&msg.Call)
+		if obj != nil {
+			state.DeferredLocks[obj] = true
+		}
+	} else if isUnlockCallCommon(&msg.Call) {
+		obj := getLockObjectFromCallCommon(&msg.Call)
+		if obj != nil {
+			state.DeferredUnlocks[obj] = true
+		}
+	}
+}
+
 // Analyze the instructions of a given block, updating lock/defer state in accordance with SSA side effects.
-func analyzeInstructions(instrs []ssa.Instruction, state *AnalysisState, fn *ssa.Function, registry *ir.ContractRegistry) {
+func analyzeInstructions(
+	instrs []ssa.Instruction,
+	state *AnalysisState,
+	registry *ir.ContractRegistry,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
 	for _, instr := range instrs {
 		switch msg := instr.(type) {
 		case *ssa.Call:
-			if isLockCall(msg) {
-				obj := getLockObject(msg)
-				if obj != nil {
-					state.HeldLocks[obj] = true
-				}
-			} else if isUnlockCall(msg) {
-				obj := getLockObject(msg)
-				if obj != nil {
-					delete(state.HeldLocks, obj)
-				}
-			} else {
-				callee := msg.Call.StaticCallee()
-				if callee != nil {
-					contract := contractForFunction(callee, registry)
-					if contract == nil {
-						continue
-					}
-					for _, exp := range contract.Expectations {
-						if exp.Kind == ir.Requires {
-							// Map the requirement to the caller's objects
-							reqObj := resolveObjectAtCallSite(msg, exp.Target)
-							if !state.HeldLocks[reqObj] {
-								fmt.Printf("ERROR: Call to %s requires lock %s, but it's not held!\n",
-									callee.Name(), exp.Target)
-							}
-						}
-					}
-				}
-			}
+			handleCallInstruction(msg, state, registry, reporter, fset)
 		case *ssa.Defer:
-			if isLockCallCommon(&msg.Call) {
-				obj := getLockObjectFromCallCommon(&msg.Call)
-				if obj != nil {
-					state.DeferredLocks[obj] = true
-				}
-			} else if isUnlockCallCommon(&msg.Call) {
-				obj := getLockObjectFromCallCommon(&msg.Call)
-				if obj != nil {
-					state.DeferredUnlocks[obj] = true
-				}
-			}
+			registerDeferInstruction(msg, state)
 		case *ssa.RunDefers:
 			applyDeferredEffects(state)
 		}
@@ -441,7 +485,13 @@ func updateSuccessorState(
 
 // Perform analysis for a given function using depth first search
 // to uncover every possible program path
-func functionDepthFirstSearch(fn *ssa.Function, initialLockset LockSet, registry *ir.ContractRegistry) {
+func functionDepthFirstSearch(
+	fn *ssa.Function,
+	initialLockset LockSet,
+	registry *ir.ContractRegistry,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
 	if len(fn.Blocks) == 0 {
 		return
 	}
@@ -459,8 +509,10 @@ func functionDepthFirstSearch(fn *ssa.Function, initialLockset LockSet, registry
 		entryState := blockEntryStates[curr.Index]
 		currentState := entryState.Copy()
 
-		analyzeInstructions(curr.Instrs, &currentState, fn, registry)
-		utils.PrintSSABlock(curr)
+		analyzeInstructions(curr.Instrs, &currentState, registry, reporter, fset)
+		if logger.IsVerbose() {
+			utils.PrintSSABlock(curr)
+		}
 
 		for _, succ := range curr.Succs {
 			updateSuccessorState(
@@ -486,9 +538,9 @@ func createInitialLockset(fn *ssa.Function, contract *ir.FunctionContract) LockS
 				obj := resolveObjectInScope(fn, expectation.Target)
 				if obj != nil {
 					initialLockset[obj] = true
-					fmt.Printf("Initialized path with lock: %v\n", obj.Name())
+					logger.Debugf("Initialized path with lock: %v\n", obj.Name())
 				} else {
-					fmt.Printf("Warning: Could not resolve lock target '%s' in function %s\n",
+					logger.Debugf("Warning: Could not resolve lock target '%s' in function %s\n",
 						expectation.Target, fn.Name())
 				}
 			}
@@ -500,7 +552,12 @@ func createInitialLockset(fn *ssa.Function, contract *ir.FunctionContract) LockS
 
 // Analyze a function, recursively handling any anonymous functions
 // within it's body
-func analyzeFunction(fn *ssa.Function, registry *ir.ContractRegistry) {
+func analyzeFunction(
+	fn *ssa.Function,
+	registry *ir.ContractRegistry,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
 	if fn == nil || len(fn.Blocks) == 0 {
 		return
 	}
@@ -509,24 +566,30 @@ func analyzeFunction(fn *ssa.Function, registry *ir.ContractRegistry) {
 	contract := contractForFunction(fn, registry)
 	initialLockset := createInitialLockset(fn, contract)
 
-	fmt.Println("Function analyzed: ", fn.Name(), contract)
+	logger.Debugf("Function analyzed: %s %v", fn.Name(), contract)
 	// Begin DFS through function
-	functionDepthFirstSearch(fn, initialLockset, registry)
+	functionDepthFirstSearch(fn, initialLockset, registry, reporter, fset)
 
 	// Recurse through any anonymous functions
 	for _, anon := range fn.AnonFuncs {
-		analyzeFunction(anon, registry)
+		analyzeFunction(anon, registry, reporter, fset)
 	}
 }
 
-func findMethodsForType(pkg *ssa.Package, t types.Type, registry *ir.ContractRegistry) {
+func findMethodsForType(
+	pkg *ssa.Package,
+	t types.Type,
+	registry *ir.ContractRegistry,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
 	// Check methods/interface implementing a type
 	methodSet := pkg.Prog.MethodSets.MethodSet(t)
 	for i := range methodSet.Len() {
 		selection := methodSet.At(i)
 		fn := pkg.Prog.MethodValue(selection)
 		if fn != nil && fn.Pkg == pkg {
-			analyzeFunction(fn, registry)
+			analyzeFunction(fn, registry, reporter, fset)
 		}
 	}
 
@@ -534,20 +597,20 @@ func findMethodsForType(pkg *ssa.Package, t types.Type, registry *ir.ContractReg
 	ptrMset := pkg.Prog.MethodSets.MethodSet(types.NewPointer(t))
 	for i := range ptrMset.Len() {
 		if fn := pkg.Prog.MethodValue(ptrMset.At(i)); fn != nil {
-			analyzeFunction(fn, registry)
+			analyzeFunction(fn, registry, reporter, fset)
 		}
 	}
 }
 
-func Run(pkg *ssa.Package, registry *ir.ContractRegistry) {
+func Run(pkg *ssa.Package, registry *ir.ContractRegistry, reporter *report.Reporter, fset *token.FileSet) {
 	for _, member := range pkg.Members {
 		switch n := member.(type) {
 		case *ssa.Function:
-			analyzeFunction(n, registry)
+			analyzeFunction(n, registry, reporter, fset)
 		case *ssa.Type:
 			// Check if the type has any methods
 			// This appears when using an interface
-			findMethodsForType(pkg, n.Type(), registry)
+			findMethodsForType(pkg, n.Type(), registry, reporter, fset)
 		}
 	}
 }

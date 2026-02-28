@@ -14,3 +14,17 @@ By allowing programmers to provide lightweight annotations, lock dependencies an
 - `/analyzer`: SSA and CFG analysis
 - `/ir`: internal representation for the analysis tool after the parser completes 
 - `/parse`: parse annotations from the source file or package
+
+## Run (current CLI)
+
+```bash
+go run main.go -file ./examples/noStructExample/noStructExample.go
+```
+
+## Run as go/analysis analyzer
+
+```bash
+go run ./cmd/gotsan-analyzer ./...
+```
+
+This uses `pipeline.GoAnalysisAnalyzer` as a thin adapter over the existing parse + SSA engine.
