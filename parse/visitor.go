@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"go/types"
 	"gotsan/ir"
 	"gotsan/utils"
 	"strings"
@@ -76,6 +77,15 @@ func (v *Visitor) handleFuncDecl(n *ast.FuncDecl) *ir.FunctionContract {
 	return contract
 }
 
+func receiverTypeName(recv *ast.FieldList) string {
+	if recv == nil || len(recv.List) == 0 {
+		return ""
+	}
+
+	recvType := types.ExprString(recv.List[0].Type)
+	return ir.NormalizeTypeName(recvType)
+}
+
 // Specification for a variable definition
 func (v *Visitor) handleValueSpecs(node *ast.GenDecl, specs []ast.Spec) {
 	for _, spec := range specs {
@@ -125,7 +135,12 @@ func (v *Visitor) Visit(node ast.Node) ast.Visitor {
 	switch n := node.(type) {
 	case *ast.FuncDecl:
 		// Add the function to the registry
-		v.Registry.Functions[n.Name.Name] = v.handleFuncDecl(n)
+		contract := v.handleFuncDecl(n)
+		key := ir.MakeFunctionKey(n.Name.Name, receiverTypeName(n.Recv))
+		v.Registry.Functions[key] = contract
+		if _, exists := v.Registry.Functions[n.Name.Name]; !exists {
+			v.Registry.Functions[n.Name.Name] = contract
+		}
 	case *ast.GenDecl:
 		v.handleDataInvariantDecl(n)
 	}

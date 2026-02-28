@@ -3,11 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"go/ast"
 	"go/token"
-	"gotsan/analyzer"
 	"gotsan/ir"
-	"gotsan/parse"
+	"gotsan/pipeline"
+	"gotsan/utils/logger"
+	"gotsan/utils/report"
 	"log"
 	"os"
 
@@ -20,7 +20,12 @@ func main() {
 	// Parse the command line arg
 	filePath := flag.String("file", "", "path to Go source file to analyze")
 	pkgPattern := flag.String("pkg", "", "Go package to analyze")
+	verbose := flag.Bool("v", false, "enable debug logs")
 	flag.Parse()
+
+	if *verbose {
+		logger.SetLevel(logger.Debug)
+	}
 
 	if *filePath == "" && *pkgPattern == "" {
 		fmt.Println("Usage:")
@@ -56,27 +61,25 @@ func main() {
 
 	// Walk every file in every loaded package
 	for _, pkg := range pkgs {
-		for _, file := range pkg.Syntax {
-			v := &parse.Visitor{
-				Fset:     fset,
-				Registry: registry,
-			}
-			ast.Walk(v, file)
-		}
+		pipeline.PopulateRegistryFromFiles(registry, pkg.Syntax, fset)
 	}
 
-	registry.PrintContractRegistry(fset)
+	if logger.IsVerbose() {
+		registry.PrintContractRegistry(fset)
+	}
 
 	// 2. Analysis Phase
 	prog, ssaPkgs := ssautil.Packages(pkgs, ssa.BuilderMode(0))
 	prog.Build()
+	reporter := &report.Reporter{}
 
 	for _, ssaPkg := range ssaPkgs {
 		if ssaPkg == nil {
 			continue
 		}
 
-		analyzer.Run(ssaPkg, registry)
+		pipeline.AnalyzeSSAPackage(ssaPkg, registry, reporter, fset)
 	}
 
+	reporter.Print()
 }
