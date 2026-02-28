@@ -100,24 +100,19 @@ func traceToObject(val ssa.Value) types.Object {
 			ptr := v.X.Type().Underlying().(*types.Pointer)
 			strct := ptr.Elem().Underlying().(*types.Struct)
 			return strct.Field(v.Field)
-
 		case *ssa.UnOp:
 			// If it's a pointer dereference (*ptr), look at the pointer
 			val = v.X
-
 		case *ssa.IndexAddr:
 			// If it's a mutex in a slice (locks[i]), we treat the slice
 			// object itself as the lock for simplicity in Week 2
 			return traceToObject(v.X)
-
 		case *ssa.Parameter:
 			// If it was passed in as an argument
 			return v.Object()
-
 		case *ssa.Global:
 			// If it's a global mutex
 			return v.Object()
-
 		default:
 			// If we hit something we don't recognize, stop
 			return nil
@@ -139,7 +134,6 @@ func resolveObjectInScope(fn *ssa.Function, targetName string) types.Object {
 
 	// Handle single-name resolution
 	return resolveSingleName(fn, targetName)
-
 }
 
 // resolvePathInScope handles names with dots (e.g., "a.mu" or "mu.lock")
@@ -358,6 +352,7 @@ func findFieldPathInValue(val ssa.Value, fieldPath []string) types.Object {
 	return found
 }
 
+// Retrieve function contract from the registry
 func contractForFunction(fn *ssa.Function, registry *ir.ContractRegistry) *ir.FunctionContract {
 	if fn == nil {
 		return nil
@@ -415,10 +410,15 @@ func handleCallInstruction(
 	}
 }
 
+// Run at the end of the function to handle any state modifications
+// made in the "defer" keyword, seen earlier in the function
 func applyDeferredEffects(state *AnalysisState) {
+	// Add any locks that were deferred to the lockset
 	for obj := range state.DeferredLocks {
 		state.HeldLocks[obj] = true
 	}
+
+	// Remove any locks from the lockset that were unlocked in a defer step
 	for obj := range state.DeferredUnlocks {
 		delete(state.HeldLocks, obj)
 	}
