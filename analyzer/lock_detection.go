@@ -67,7 +67,7 @@ func getLockObject(instr *ssa.Call) types.Object {
 
 	receiver := instr.Call.Args[0]
 
-	return traceToObject(receiver)
+	return resolveValueToObject(receiver)
 }
 
 func getLockObjectFromCallCommon(common *ssa.CallCommon) types.Object {
@@ -76,5 +76,5 @@ func getLockObjectFromCallCommon(common *ssa.CallCommon) types.Object {
 	}
 
 	receiver := common.Args[0]
-	return traceToObject(receiver)
+	return resolveValueToObject(receiver)
 }

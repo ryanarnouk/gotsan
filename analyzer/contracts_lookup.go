@@ -7,30 +7,42 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+func receiverTypeName(fn *ssa.Function) string {
+	if fn.Signature == nil {
+		return ""
+	}
+
+	recv := fn.Signature.Recv()
+	if recv == nil {
+		return ""
+	}
+
+	return ir.NormalizeTypeName(recv.Type().String())
+}
+
 // Retrieve function contract from the registry
 func contractForFunction(fn *ssa.Function, registry *ir.ContractRegistry) *ir.FunctionContract {
 	if fn == nil {
 		return nil
 	}
 
-	recv := ""
-	if fn.Signature != nil && fn.Signature.Recv() != nil {
-		recv = ir.NormalizeTypeName(fn.Signature.Recv().Type().String())
+	recv := receiverTypeName(fn)
+
+	// If the function is a method, and has a receiver
+	// retrieve it by normalizing the type name to the function name
+	// Try method key first (if receiver exists)
+	if recv != "" {
+		if c := registry.Functions[ir.MakeFunctionKey(fn.Name(), recv)]; c != nil {
+			return c
+		}
 	}
 
-	if contract, ok := registry.Functions[ir.MakeFunctionKey(fn.Name(), recv)]; ok {
-		return contract
-	}
-
-	if contract, ok := registry.Functions[fn.Name()]; ok {
-		return contract
-	}
-
-	return nil
+	// Fallback to plain function name
+	return registry.Functions[fn.Name()]
 }
 
 // Creates the initial lockset for a function, according to the Requires
-// tag that is provided
+// tag that is provided, and matches the function contract
 func createInitialLockset(fn *ssa.Function, contract *ir.FunctionContract) LockSet {
 	// Setup initial state
 	initialLockset := make(LockSet)

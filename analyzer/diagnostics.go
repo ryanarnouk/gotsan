@@ -8,6 +8,8 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Analysis reporting helper functions
+
 func reportMissingLock(
 	msg *ssa.Call,
 	callee *ssa.Function,

@@ -51,7 +51,7 @@ func dataInvariantForAddress(addr ssa.Value, registry *ir.ContractRegistry) (str
 		return "", nil
 	}
 
-	obj := traceToObject(addr)
+	obj := resolveValueToObject(addr)
 	if obj == nil {
 		return "", nil
 	}
@@ -79,7 +79,7 @@ func resolveGuardLockObject(fn *ssa.Function, addr ssa.Value, mutexName string) 
 	parts := strings.Split(mutexName, ".")
 
 	if fieldAddr, ok := addr.(*ssa.FieldAddr); ok {
-		if obj := findFieldPathInValue(fieldAddr.X, parts); obj != nil {
+		if obj := resolveValueField(fieldAddr.X, parts); obj != nil {
 			return obj
 		}
 	}

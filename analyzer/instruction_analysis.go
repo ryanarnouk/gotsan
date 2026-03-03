@@ -38,6 +38,37 @@ func analyzeInstructions(
 	}
 }
 
+// For a new function that is called, retrieve the contract
+// and verify that all expectations are met with respect to
+// the current lockset
+// fn is the callee function, this function is invoked from the caller
+func handleStaticCalleeFunction(calleeFn *ssa.Function, callSite *ssa.Call, registry *ir.ContractRegistry, state *AnalysisState, reporter *report.Reporter,
+	fset *token.FileSet) {
+	if calleeFn == nil {
+		return
+	}
+	contract := contractForFunction(calleeFn, registry)
+	if contract == nil {
+		return
+	}
+
+	// loop through each expectation and each target, reporting any missing locks listed in the
+	// annotation that is not in the current lockset
+	for _, exp := range contract.Expectations {
+		if exp.Kind != ir.Requires {
+			continue
+		}
+
+		// Map the requirement to the caller's objects
+		// Turn the mutex name in the annotation to an SSA object
+		requiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
+
+		if !state.HeldLocks[requiredLockObject] {
+			reportMissingLock(callSite, calleeFn, exp.Target, reporter, fset)
+		}
+	}
+}
+
 func handleCallInstruction(
 	msg *ssa.Call,
 	state *AnalysisState,
@@ -57,24 +88,13 @@ func handleCallInstruction(
 		}
 	} else {
 		callee := msg.Call.StaticCallee()
-		if callee != nil {
-			contract := contractForFunction(callee, registry)
-			if contract != nil {
-				for _, exp := range contract.Expectations {
-					if exp.Kind == ir.Requires {
-						// Map the requirement to the caller's objects
-						reqObj := resolveObjectAtCallSite(msg, exp.Target)
-						if !state.HeldLocks[reqObj] {
-							reportMissingLock(msg, callee, exp.Target, reporter, fset)
-						}
-					}
-				}
-			}
-		}
+		handleStaticCalleeFunction(callee, msg, registry, state, reporter, fset)
 	}
 }
 
 // DEFER STATEMENT HELPERS
+// ---------------------------------------------------------------------------
+
 // Run at the end of the function to handle any state modifications
 // made in the "defer" keyword, seen earlier in the function
 func applyDeferredEffects(state *AnalysisState) {

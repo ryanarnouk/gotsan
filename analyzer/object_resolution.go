@@ -7,43 +7,6 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// resolvePathInScope handles names with dots (e.g., "a.mu" or "mu.lock")
-func resolvePathInScope(fn *ssa.Function, parts []string) types.Object {
-	first := parts[0]
-
-	// 1. Check if the first part is a parameter (includes receiver)
-	for _, p := range fn.Params {
-		if p.Name() == first {
-			return findFieldPathInType(p.Type(), parts[1:])
-		}
-	}
-
-	// 2. Implicit receiver check (the first part might be a field of the receiver)
-	if len(fn.Params) > 0 {
-		recv := fn.Params[0]
-		// Case: "field.subfield" where "field" is on the receiver
-		return findFieldPathInType(recv.Type(), parts)
-	}
-
-	return nil
-}
-
-// resolveSingleName handles simple identifiers (e.g., "mu")
-func resolveSingleName(fn *ssa.Function, name string) types.Object {
-	// 1. Check Parameters
-	if obj := findInParams(fn, name); obj != nil {
-		return obj
-	}
-
-	// 2. Check Implicit Receiver Fields
-	if obj := findInReceiverFields(fn, name); obj != nil {
-		return obj
-	}
-
-	// 3. Check Package Globals
-	return findInPackageGlobals(fn, name)
-}
-
 func findInParams(fn *ssa.Function, name string) types.Object {
 	for _, p := range fn.Params {
 		if p.Name() == name {
@@ -92,24 +55,28 @@ func getUnderlyingStruct(t types.Type) (*types.Struct, bool) {
 	return strct, ok
 }
 
-func findFieldPathInType(typ types.Type, fieldPath []string) types.Object {
+// Search through a struct (i.e., type) to find object (in SSA) corresponding to the field
+func resolveNestedField(typ types.Type, fieldPath []string) types.Object {
 	if len(fieldPath) == 0 {
 		return nil
 	}
 
-	var found types.Object
 	current := typ
+	var found types.Object
 
 	for _, fieldName := range fieldPath {
+		// Dereference pointers
 		if ptr, ok := current.Underlying().(*types.Pointer); ok {
 			current = ptr.Elem()
 		}
 
+		// Must be a struct
 		strct, ok := current.Underlying().(*types.Struct)
 		if !ok {
 			return nil
 		}
 
+		// Find the matching field
 		matched := false
 		for i := 0; i < strct.NumFields(); i++ {
 			field := strct.Field(i)
@@ -129,44 +96,8 @@ func findFieldPathInType(typ types.Type, fieldPath []string) types.Object {
 	return found
 }
 
-func findFieldPathInValue(val ssa.Value, fieldPath []string) types.Object {
-	if len(fieldPath) == 0 {
-		return traceToObject(val)
-	}
-
-	typ := val.Type()
-	var found types.Object
-
-	for _, fieldName := range fieldPath {
-		if ptr, ok := typ.Underlying().(*types.Pointer); ok {
-			typ = ptr.Elem()
-		}
-
-		strct, ok := typ.Underlying().(*types.Struct)
-		if !ok {
-			return nil
-		}
-
-		matched := false
-		for i := 0; i < strct.NumFields(); i++ {
-			field := strct.Field(i)
-			if field.Name() == fieldName {
-				found = field
-				typ = field.Type()
-				matched = true
-				break
-			}
-		}
-
-		if !matched {
-			return nil
-		}
-	}
-
-	return found
-}
-
-func traceToObject(val ssa.Value) types.Object {
+// Resolve a direct value (evaluated expression) to an object in SSA
+func resolveValueToObject(val ssa.Value) types.Object {
 	for {
 		switch v := val.(type) {
 		case *ssa.FieldAddr:
@@ -181,7 +112,7 @@ func traceToObject(val ssa.Value) types.Object {
 			val = v.X
 		case *ssa.IndexAddr:
 			// If it's a mutex in a slice (locks[i]) trace as slice
-			return traceToObject(v.X)
+			return resolveValueToObject(v.X)
 		case *ssa.Parameter:
 			// If it was passed in as an argument
 			return v.Object()
@@ -195,56 +126,110 @@ func traceToObject(val ssa.Value) types.Object {
 	}
 }
 
-// Resolve a mutex variable name in an annotation to the corresponding assignment
-// in the SSA blocks
-func resolveObjectInScope(fn *ssa.Function, targetName string) types.Object {
+// resolveIdentifier handles simple identifiers (e.g., "mu") that are not accessed through
+// any structs
+func resolveIdentifier(fn *ssa.Function, name string) types.Object {
+	// 1. Check Parameters
+	if obj := findInParams(fn, name); obj != nil {
+		return obj
+	}
+
+	// 2. Check Implicit Receiver Fields
+	if obj := findInReceiverFields(fn, name); obj != nil {
+		return obj
+	}
+
+	// 3. Check Package Globals
+	return findInPackageGlobals(fn, name)
+}
+
+// Returns the object of variables accessed through a parent struct.
+// Or, more simply, are contained and accessed with a period (e.g., "a.mu" or "mu.lock")
+func resolveMultiAccess(fn *ssa.Function, parts []string) types.Object {
+	first := parts[0]
+
+	// 1. Check if the first part is a parameter (includes receiver)
+	for _, p := range fn.Params {
+		if p.Name() == first {
+			return resolveNestedField(p.Type(), parts[1:])
+		}
+	}
+
+	// 2. Implicit receiver check (the first part might be a field of the receiver)
+	if len(fn.Params) > 0 {
+		recv := fn.Params[0]
+		// Case: "field.subfield" where "field" is on the receiver
+		return resolveNestedField(recv.Type(), parts)
+	}
+
+	return nil
+}
+
+func splitTarget(targetName string) []string {
 	if targetName == "" {
 		return nil
 	}
-
-	parts := strings.Split(targetName, ".")
-	if len(parts) > 1 {
-		return resolvePathInScope(fn, parts)
-	}
-
-	// Handle single-name resolution
-	return resolveSingleName(fn, targetName)
+	return strings.Split(targetName, ".")
 }
 
+func resolveValueField(val ssa.Value, fieldPath []string) types.Object {
+	if len(fieldPath) == 0 {
+		return resolveValueToObject(val)
+	}
+	return resolveNestedField(val.Type(), fieldPath)
+}
+
+// Resolve a mutex variable name in an annotation to the corresponding assignment
+// in the SSA blocks
+func resolveObjectInScope(fn *ssa.Function, targetName string) types.Object {
+	parts := splitTarget(targetName)
+	if len(parts) == 0 {
+		return nil
+	}
+
+	if len(parts) == 1 {
+		return resolveIdentifier(fn, targetName)
+	}
+
+	return resolveMultiAccess(fn, parts)
+}
+
+func resolveParamField(callee *ssa.Function, callArgs []ssa.Value, parts []string) types.Object {
+	first := parts[0]
+	for i, p := range callee.Params {
+		if p.Name() == first && i < len(callArgs) {
+			return resolveValueField(callArgs[i], parts[1:])
+		}
+	}
+	return nil
+}
+
+// Resolve object at the location of the call of a function
+// This is used to resolve the mutex names in the annotations
+// (of the callee function) to the SSA object and check the lockset
 func resolveObjectAtCallSite(call *ssa.Call, targetName string) types.Object {
 	callee := call.Call.StaticCallee()
 	if callee == nil || targetName == "" {
 		return nil
 	}
 
-	parts := strings.Split(targetName, ".")
+	parts := splitTarget(targetName)
 	if len(parts) == 0 {
 		return nil
 	}
 
-	// Try mapping explicit parameter targets first (e.g., from.mu, to.mu, a.mu)
-	first := parts[0]
-	for i, p := range callee.Params {
-		if p.Name() == first && i < len(call.Call.Args) {
-			if len(parts) == 1 {
-				return traceToObject(call.Call.Args[i])
-			}
-			return findFieldPathInValue(call.Call.Args[i], parts[1:])
-		}
+	// Try mapping to explicit parameters
+	obj := resolveParamField(callee, call.Call.Args, parts)
+	if obj != nil {
+		return obj
 	}
 
-	// Fallback: interpret target relative to receiver
+	// Fallback: interpret relative to receiver (first argument)
 	if len(call.Call.Args) > 0 {
 		receiver := call.Call.Args[0]
-		if len(parts) == 1 {
-			return findFieldPathInValue(receiver, parts)
-		}
-
-		// Handles receiver-qualified targets like b.mu or b.vault.mu
-		if len(callee.Params) > 0 && callee.Params[0].Name() == first {
-			return findFieldPathInValue(receiver, parts[1:])
-		}
-		return findFieldPathInValue(receiver, parts)
+		return resolveValueField(receiver, parts)
 	}
+
 	return nil
+
 }
