@@ -7,6 +7,9 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Methods to resolve mutex references to an types.Object
+// form, found in the SSA form
+
 func findInParams(fn *ssa.Function, name string) types.Object {
 	for _, p := range fn.Params {
 		if p.Name() == name {

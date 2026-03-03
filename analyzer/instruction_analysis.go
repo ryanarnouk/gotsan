@@ -38,6 +38,36 @@ func analyzeInstructions(
 	}
 }
 
+func checkRequiresExpectation(exp ir.Requirement, calleeFn *ssa.Function, callSite *ssa.Call, state *AnalysisState, reporter *report.Reporter,
+	fset *token.FileSet) {
+	if exp.Kind != ir.Requires {
+		return
+	}
+
+	// Map the requirement to the caller's objects
+	// Turn the mutex name in the annotation to an SSA object
+	requiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
+
+	if !state.HeldLocks[requiredLockObject] {
+		reportMissingLock(callSite, calleeFn, exp.Target, reporter, fset)
+	}
+}
+
+func checkAcquiresExpectation(exp ir.Requirement, calleeFn *ssa.Function, callSite *ssa.Call, state *AnalysisState, reporter *report.Reporter,
+	fset *token.FileSet) {
+	if exp.Kind != ir.Acquires {
+		return
+	}
+
+	// Map the requirement to the caller's objects
+	// Turn the mutex name in the annotation to an SSA object
+	acquiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
+
+	if state.HeldLocks[acquiredLockObject] {
+		reportAlreadyAcquiredLock(callSite, calleeFn, exp.Target, reporter, fset)
+	}
+}
+
 // For a new function that is called, retrieve the contract
 // and verify that all expectations are met with respect to
 // the current lockset
@@ -55,17 +85,8 @@ func handleStaticCalleeFunction(calleeFn *ssa.Function, callSite *ssa.Call, regi
 	// loop through each expectation and each target, reporting any missing locks listed in the
 	// annotation that is not in the current lockset
 	for _, exp := range contract.Expectations {
-		if exp.Kind != ir.Requires {
-			continue
-		}
-
-		// Map the requirement to the caller's objects
-		// Turn the mutex name in the annotation to an SSA object
-		requiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
-
-		if !state.HeldLocks[requiredLockObject] {
-			reportMissingLock(callSite, calleeFn, exp.Target, reporter, fset)
-		}
+		checkRequiresExpectation(exp, calleeFn, callSite, state, reporter, fset)
+		checkAcquiresExpectation(exp, calleeFn, callSite, state, reporter, fset)
 	}
 }
 

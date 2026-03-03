@@ -41,6 +41,14 @@ func (a *Account) depositUnsafe(amount int) {
 	a.balance += amount
 }
 
+// @acquires(mu)
+func (a *Account) helperFunction() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return 1
+}
+
 // Deposit safely adds money and releases the lock before returning.
 //
 // @acquires(mu)
@@ -53,6 +61,11 @@ func (a *Account) Deposit(amount int) {
 	side_effect()
 
 	a.depositUnsafe(amount)
+
+	// This function already has a lock, but the
+	// following function attempts to get the same lock
+	// should return an error that it's already being used
+	a.helperFunction()
 }
 
 // Deposit within an anonymous function that lets go of the lock prematurely and calls depositUnsafe

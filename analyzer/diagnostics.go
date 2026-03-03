@@ -55,3 +55,26 @@ func reportGuardViolation(
 		Message:  "Access to " + dataName + " requires lock " + mutexName + ", but it's not held",
 	})
 }
+
+func reportAlreadyAcquiredLock(
+	msg *ssa.Call,
+	callee *ssa.Function,
+	target string,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if reporter == nil || fset == nil {
+		logger.Infof("ERROR: Call to %s acquires lock %s, but it is already held\n", callee.Name(), target)
+		return
+	}
+
+	position := fset.Position(msg.Pos())
+	reporter.Warn(report.Diagnostic{
+		Pos:      msg.Pos(),
+		File:     position.Filename,
+		Line:     position.Line,
+		Column:   position.Column,
+		Severity: "warning",
+		Message:  "Call to " + callee.Name() + " acquires lock " + target + ", but it is already held",
+	})
+}
