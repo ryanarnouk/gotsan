@@ -12,6 +12,7 @@ import (
 func analyzeInstructions(
 	fn *ssa.Function,
 	instrs []ssa.Instruction,
+	contract *ir.FunctionContract,
 	state *AnalysisState,
 	registry *ir.ContractRegistry,
 	reporter *report.Reporter,
@@ -34,16 +35,54 @@ func analyzeInstructions(
 		case *ssa.Store:
 			// Store
 			checkGuardedByAccess(msg, fn, msg.Addr, state, registry, reporter, fset)
+		case *ssa.Return:
+			checkReturnPath(fn, msg, contract, state, reporter, fset)
 		}
+	}
+}
+
+func checkReturnPath(
+	fn *ssa.Function,
+	ret *ssa.Return,
+	contract *ir.FunctionContract,
+	state *AnalysisState,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if contract != nil {
+		returns := contract.Expectations[ir.Returns]
+		if len(returns) > 0 {
+			for _, exp := range returns {
+				checkReturnsExpectation(fn, ret, state, reporter, fset, exp)
+			}
+			return
+		}
+	}
+
+	if len(state.HeldLocks) > 0 {
+		reportUndeclaredReturnedLock(fn, ret, state.HeldLocks, reporter, fset)
+	}
+}
+
+func checkReturnsExpectation(
+	fn *ssa.Function,
+	ret *ssa.Return,
+	state *AnalysisState,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+	exp ir.Requirement) {
+	requiredLockObject := resolveObjectInScope(fn, exp.Target)
+	if requiredLockObject == nil {
+		return
+	}
+
+	if !state.HeldLocks[requiredLockObject] {
+		reportReturnMissingLock(fn, ret, exp.Target, reporter, fset)
 	}
 }
 
 func checkRequiresExpectation(exp ir.Requirement, calleeFn *ssa.Function, callSite *ssa.Call, state *AnalysisState, reporter *report.Reporter,
 	fset *token.FileSet) {
-	if exp.Kind != ir.Requires {
-		return
-	}
-
 	// Map the requirement to the caller's objects
 	// Turn the mutex name in the annotation to an SSA object
 	requiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
@@ -55,10 +94,6 @@ func checkRequiresExpectation(exp ir.Requirement, calleeFn *ssa.Function, callSi
 
 func checkAcquiresExpectation(exp ir.Requirement, calleeFn *ssa.Function, callSite *ssa.Call, state *AnalysisState, reporter *report.Reporter,
 	fset *token.FileSet) {
-	if exp.Kind != ir.Acquires {
-		return
-	}
-
 	// Map the requirement to the caller's objects
 	// Turn the mutex name in the annotation to an SSA object
 	acquiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
@@ -82,10 +117,13 @@ func handleStaticCalleeFunction(calleeFn *ssa.Function, callSite *ssa.Call, regi
 		return
 	}
 
-	// loop through each expectation and each target, reporting any missing locks listed in the
-	// annotation that is not in the current lockset
-	for _, exp := range contract.Expectations {
+	requires := contract.Expectations[ir.Requires]
+	for _, exp := range requires {
 		checkRequiresExpectation(exp, calleeFn, callSite, state, reporter, fset)
+	}
+
+	acquires := contract.Expectations[ir.Acquires]
+	for _, exp := range acquires {
 		checkAcquiresExpectation(exp, calleeFn, callSite, state, reporter, fset)
 	}
 }

@@ -48,17 +48,15 @@ func createInitialLockset(fn *ssa.Function, contract *ir.FunctionContract) LockS
 	initialLockset := make(LockSet)
 
 	if contract != nil {
-		for _, expectation := range contract.Expectations {
-			// Handle annotation "requires" expectations
-			if expectation.Kind == ir.Requires {
-				obj := resolveObjectInScope(fn, expectation.Target)
-				if obj != nil {
-					initialLockset[obj] = true
-					logger.Debugf("Initialized path with lock: %v\n", obj.Name())
-				} else {
-					logger.Debugf("Warning: Could not resolve lock target '%s' in function %s\n",
-						expectation.Target, fn.Name())
-				}
+		requires := contract.Expectations[ir.Requires]
+		for _, expectation := range requires {
+			obj := resolveObjectInScope(fn, expectation.Target)
+			if obj != nil {
+				initialLockset[obj] = true
+				logger.Debugf("Initialized path with lock: %v\n", obj.Name())
+			} else {
+				logger.Debugf("Warning: Could not resolve lock target '%s' in function %s\n",
+					expectation.Target, fn.Name())
 			}
 		}
 	}

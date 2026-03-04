@@ -4,7 +4,6 @@ import (
 	"go/token"
 	"go/types"
 	"gotsan/ir"
-	"gotsan/utils/logger"
 	"gotsan/utils/report"
 
 	"golang.org/x/tools/go/ssa"
@@ -22,13 +21,7 @@ func analyzeFunction(
 		return
 	}
 
-	// Setup initial state
-	contract := contractForFunction(fn, registry)
-	initialLockset := createInitialLockset(fn, contract)
-
-	logger.Debugf("Function analyzed: %s %v", fn.Name(), contract)
-	// Begin DFS through function
-	functionDepthFirstSearch(fn, initialLockset, registry, reporter, fset)
+	functionDepthFirstSearch(fn, registry, reporter, fset)
 
 	// Recurse through any anonymous functions
 	for _, anon := range fn.AnonFuncs {

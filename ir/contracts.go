@@ -13,13 +13,12 @@ import (
 // with the "Kind" mapping to an annotation function
 // And the Target being the specific mutex
 type Requirement struct {
-	Kind   AnnotationKind
 	Target string
 }
 
 // Represents concurrency invariants for specific function
 type FunctionContract struct {
-	Expectations []Requirement
+	Expectations map[AnnotationKind][]Requirement
 	Pos          token.Pos
 }
 
@@ -123,8 +122,20 @@ func (cr *ContractRegistry) PrintContractRegistry(fset *token.FileSet) {
 				continue
 			}
 
-			for _, req := range fc.Expectations {
-				fmt.Printf("  - %s\n", req.Kind.String())
+			annotationKinds := make([]AnnotationKind, 0, len(fc.Expectations))
+			for kind := range fc.Expectations {
+				annotationKinds = append(annotationKinds, kind)
+			}
+			sort.Slice(annotationKinds, func(i, j int) bool {
+				return annotationKinds[i] < annotationKinds[j]
+			})
+
+			for _, kind := range annotationKinds {
+				reqs := fc.Expectations[kind]
+				if len(reqs) == 0 {
+					continue
+				}
+				fmt.Printf("  - %s: %d\n", kind.String(), len(reqs))
 			}
 		}
 	}

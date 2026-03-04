@@ -35,7 +35,6 @@ func updateSuccessorState(
 // to uncover every possible program path
 func functionDepthFirstSearch(
 	fn *ssa.Function,
-	initialLockset LockSet,
 	registry *ir.ContractRegistry,
 	reporter *report.Reporter,
 	fset *token.FileSet,
@@ -44,6 +43,13 @@ func functionDepthFirstSearch(
 		return
 	}
 
+	// Setup initial state
+	contract := contractForFunction(fn, registry)
+	initialLockset := createInitialLockset(fn, contract)
+
+	logger.Debugf("Function being analyzed: %s %v", fn.Name(), contract)
+
+	// Begin DFS through function
 	entry := fn.Blocks[0]
 	blockEntryStates := map[int]AnalysisState{
 		entry.Index: newAnalysisState(initialLockset),
@@ -57,7 +63,7 @@ func functionDepthFirstSearch(
 		entryState := blockEntryStates[curr.Index]
 		currentState := entryState.Copy()
 
-		analyzeInstructions(fn, curr.Instrs, &currentState, registry, reporter, fset)
+		analyzeInstructions(fn, curr.Instrs, contract, &currentState, registry, reporter, fset)
 		if logger.IsVerbose() {
 			utils.PrintSSABlock(curr)
 		}

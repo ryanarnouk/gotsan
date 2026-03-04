@@ -38,6 +38,12 @@ func TestParseAnnotation(t *testing.T) {
 			wantParams: []string{"state_mu"},
 		},
 		{
+			name:       "Returns",
+			comment:    "//@returns(mu)",
+			wantKind:   ir.Returns,
+			wantParams: []string{"mu"},
+		},
+		{
 			name:       "Mixed Case Keyword",
 			comment:    "// @requires(mu)",
 			wantKind:   ir.Requires,

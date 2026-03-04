@@ -60,17 +60,17 @@ func (v *Visitor) registerDataInvariants(annotations []Annotation, names []*ast.
 
 func (v *Visitor) handleFuncDecl(n *ast.FuncDecl) *ir.FunctionContract {
 	contract := &ir.FunctionContract{
-		Pos: n.Pos(),
+		Expectations: make(map[ir.AnnotationKind][]ir.Requirement),
+		Pos:          n.Pos(),
 	}
 
 	// Doc refers to function documentation comments
 	for _, annotation := range v.parseAnnotations(n.Doc) {
 		for _, param := range annotation.Params {
 			req := ir.Requirement{
-				Kind:   annotation.Kind,
 				Target: strings.TrimSpace(param),
 			}
-			contract.Expectations = append(contract.Expectations, req)
+			contract.Expectations[annotation.Kind] = append(contract.Expectations[annotation.Kind], req)
 		}
 	}
 

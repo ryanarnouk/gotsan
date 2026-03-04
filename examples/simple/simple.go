@@ -139,6 +139,17 @@ func (a *Account) WithdrawWithAliasingLock(amount int) {
 	}
 }
 
+// @acquires(a.mu)
+// @returns(a.mu)
+func (a *Account) doesNotAlwaysUnlock() {
+	a.mu.Lock()
+	if 1 < 2 {
+		a.mu.Unlock()
+	} else {
+		// Keep the lock, do nothing
+	}
+}
+
 func main() {
 	account := Account{}
 	account.depositUnsafe(10)
