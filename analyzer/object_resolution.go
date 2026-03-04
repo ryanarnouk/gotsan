@@ -227,6 +227,13 @@ func resolveObjectAtCallSite(call *ssa.Call, targetName string) types.Object {
 		return obj
 	}
 
+	// Fallback for package-level identifiers (e.g., @requires(mu) where mu is a global)
+	if len(parts) == 1 {
+		if obj := findInPackageGlobals(callee, targetName); obj != nil {
+			return obj
+		}
+	}
+
 	// Fallback: interpret relative to receiver (first argument)
 	if len(call.Call.Args) > 0 {
 		receiver := call.Call.Args[0]

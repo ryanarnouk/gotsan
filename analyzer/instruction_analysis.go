@@ -86,6 +86,9 @@ func checkRequiresExpectation(exp ir.Requirement, calleeFn *ssa.Function, callSi
 	// Map the requirement to the caller's objects
 	// Turn the mutex name in the annotation to an SSA object
 	requiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
+	if requiredLockObject == nil {
+		return
+	}
 
 	if !state.HeldLocks[requiredLockObject] {
 		reportMissingLock(callSite, calleeFn, exp.Target, reporter, fset)
@@ -97,6 +100,9 @@ func checkAcquiresExpectation(exp ir.Requirement, calleeFn *ssa.Function, callSi
 	// Map the requirement to the caller's objects
 	// Turn the mutex name in the annotation to an SSA object
 	acquiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
+	if acquiredLockObject == nil {
+		return
+	}
 
 	if state.HeldLocks[acquiredLockObject] {
 		reportAlreadyAcquiredLock(callSite, calleeFn, exp.Target, reporter, fset)
