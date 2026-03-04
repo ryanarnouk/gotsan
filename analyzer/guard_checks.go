@@ -18,16 +18,20 @@ func typeNameFromValue(val ssa.Value) string {
 
 	t := val.Type()
 	for {
-		if ptr, ok := t.Underlying().(*types.Pointer); ok {
+		ptr, ok := t.Underlying().(*types.Pointer)
+		// type is a pointer
+		if ok {
 			t = ptr.Elem()
 			continue
 		}
 
+		// type is named
 		named, ok := t.(*types.Named)
 		if !ok {
 			return ""
 		}
 
+		// type is part of an object (i.e., within a struct)
 		if named.Obj() != nil {
 			return ir.NormalizeTypeName(named.Obj().Name())
 		}
@@ -40,6 +44,7 @@ func ownerTypeNameForAddress(addr ssa.Value) string {
 	case *ssa.FieldAddr:
 		return typeNameFromValue(v.X)
 	case *ssa.IndexAddr:
+		// Recurse on the owner
 		return ownerTypeNameForAddress(v.X)
 	default:
 		return ""
@@ -51,21 +56,30 @@ func dataInvariantForAddress(addr ssa.Value, registry *ir.ContractRegistry) (str
 		return "", nil
 	}
 
+	// data type is not an object
 	obj := resolveValueToObject(addr)
 	if obj == nil {
 		return "", nil
 	}
 
+	// address data type contains an owner
 	ownerType := ownerTypeNameForAddress(addr)
 	if ownerType != "" {
 		qualifiedKey := ownerType + "." + obj.Name()
-		if inv, ok := registry.Data[qualifiedKey]; ok {
-			return qualifiedKey, inv
+
+		// Check for the data invariant in the registry
+		// with the resolved name
+		invariant, ok := registry.Data[qualifiedKey]
+		if ok {
+			return qualifiedKey, invariant
 		}
 	}
 
-	if inv, ok := registry.Data[obj.Name()]; ok {
-		return obj.Name(), inv
+	// does not contain an owner, standalone
+	// and not defined within a struct
+	invariant, ok := registry.Data[obj.Name()]
+	if ok {
+		return obj.Name(), invariant
 	}
 
 	return "", nil
