@@ -49,6 +49,9 @@ func functionDepthFirstSearch(
 
 	logger.Debugf("Function being analyzed: %s %v", fn.Name(), contract)
 
+	// Detect lock-order inversions across goroutines launched in this function.
+	detectGoroutineLockOrderInversions(fn, registry, reporter, fset)
+
 	// Begin DFS through function
 	entry := fn.Blocks[0]
 	blockEntryStates := map[int]AnalysisState{
