@@ -20,6 +20,12 @@ type goroutineAcquireSite struct {
 	Order   []lockRef
 }
 
+type functionCallSite struct {
+	CallInstr *ssa.Call
+	Callee    *ssa.Function
+	Order     []lockRef
+}
+
 func lockDisplayName(l lockRef) string {
 	if l.Obj != nil {
 		return l.Obj.Name()
@@ -92,6 +98,25 @@ func acquireOrderForGoCall(goInstr *ssa.Go, callee *ssa.Function, contract *ir.F
 	return order
 }
 
+func acquireOrderForCall(callInstr *ssa.Call, callee *ssa.Function, contract *ir.FunctionContract) []lockRef {
+	if callInstr == nil || callee == nil || contract == nil {
+		return nil
+	}
+
+	acquires := contract.Expectations[ir.Acquires]
+	if len(acquires) == 0 {
+		return nil
+	}
+
+	order := make([]lockRef, 0, len(acquires))
+	for _, req := range acquires {
+		obj := resolveObjectAtInvocation(callee, callInstr.Call.Args, req.Target)
+		order = append(order, lockRef{Obj: obj, Name: req.Target})
+	}
+
+	return order
+}
+
 func detectGoroutineLockOrderInversions(
 	fn *ssa.Function,
 	registry *ir.ContractRegistry,
@@ -143,6 +168,68 @@ func detectGoroutineLockOrderInversions(
 			reportGoroutineLockOrderInversion(
 				sites[i].GoInstr,
 				sites[j].GoInstr,
+				sites[i].Callee,
+				sites[j].Callee,
+				lockDisplayName(firstLock),
+				lockDisplayName(secondLock),
+				reporter,
+				fset,
+			)
+		}
+	}
+}
+
+func detectSingleThreadedLockOrderInversions(
+	fn *ssa.Function,
+	registry *ir.ContractRegistry,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if fn == nil || len(fn.Blocks) == 0 || registry == nil {
+		return
+	}
+
+	sites := make([]functionCallSite, 0)
+	for _, block := range fn.Blocks {
+		for _, instr := range block.Instrs {
+			callInstr, ok := instr.(*ssa.Call)
+			if !ok {
+				continue
+			}
+
+			callee := callInstr.Call.StaticCallee()
+			if callee == nil {
+				continue
+			}
+
+			contract := contractForFunction(callee, registry)
+			if contract == nil {
+				continue
+			}
+
+			order := acquireOrderForCall(callInstr, callee, contract)
+			if len(order) < 2 {
+				continue
+			}
+
+			sites = append(sites, functionCallSite{
+				CallInstr: callInstr,
+				Callee:    callee,
+				Order:     order,
+			})
+		}
+	}
+
+	for i := 0; i < len(sites); i++ {
+		for j := i + 1; j < len(sites); j++ {
+			firstLock, secondLock, found := findOrderInversion(sites[i].Order, sites[j].Order)
+			if !found {
+				continue
+			}
+
+			reportSingleThreadedLockOrderInversion(
+				sites[i].CallInstr,
+				sites[j].CallInstr,
 				sites[i].Callee,
 				sites[j].Callee,
 				lockDisplayName(firstLock),

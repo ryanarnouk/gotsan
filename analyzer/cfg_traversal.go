@@ -38,6 +38,7 @@ func functionDepthFirstSearch(
 	registry *ir.ContractRegistry,
 	reporter *report.Reporter,
 	fset *token.FileSet,
+	strictMode bool,
 ) {
 	if len(fn.Blocks) == 0 {
 		return
@@ -50,7 +51,13 @@ func functionDepthFirstSearch(
 	logger.Debugf("Function being analyzed: %s %v", fn.Name(), contract)
 
 	// Detect lock-order inversions across goroutines launched in this function.
+	// This is always run in both lenient and strict modes.
 	detectGoroutineLockOrderInversions(fn, registry, reporter, fset)
+
+	// In strict mode, also detect lock-order inversions within single-threaded execution
+	if strictMode {
+		detectSingleThreadedLockOrderInversions(fn, registry, reporter, fset)
+	}
 
 	// Begin DFS through function
 	entry := fn.Blocks[0]

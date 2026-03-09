@@ -221,3 +221,49 @@ func reportGoroutineLockOrderInversion(
 		Message:  msg,
 	})
 }
+
+func reportSingleThreadedLockOrderInversion(
+	callA *ssa.Call,
+	callB *ssa.Call,
+	fnA *ssa.Function,
+	fnB *ssa.Function,
+	firstLock string,
+	secondLock string,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if callA == nil || reporter == nil || fset == nil {
+		return
+	}
+
+	posA := fset.Position(callA.Pos())
+	lineB := 0
+	if callB != nil {
+		lineB = fset.Position(callB.Pos()).Line
+	}
+
+	nameA := "<unknown>"
+	if fnA != nil {
+		nameA = fnA.Name()
+	}
+	nameB := "<unknown>"
+	if fnB != nil {
+		nameB = fnB.Name()
+	}
+
+	msg := "Potential deadlock in single-threaded code: " +
+		"call to " + nameA + " acquires " + firstLock + " before " + secondLock +
+		", while call to " + nameB + " acquires " + secondLock + " before " + firstLock
+	if lineB > 0 {
+		msg += " (other call near line " + strconv.Itoa(lineB) + ")"
+	}
+
+	reporter.Warn(report.Diagnostic{
+		Pos:      callA.Pos(),
+		File:     posA.Filename,
+		Line:     posA.Line,
+		Column:   posA.Column,
+		Severity: "warning",
+		Message:  msg,
+	})
+}

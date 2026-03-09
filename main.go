@@ -78,7 +78,7 @@ func main() {
 			continue
 		}
 
-		pipeline.AnalyzeSSAPackage(ssaPkg, registry, reporter, fset)
+		pipeline.AnalyzeSSAPackage(ssaPkg, registry, reporter, fset, false)
 	}
 
 	reporter.Print()
