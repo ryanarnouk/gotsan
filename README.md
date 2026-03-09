@@ -31,6 +31,16 @@ Use `-v` flag for verbose logging features.
 ```bash
 go run ./cmd/gotsan-analyzer <path to file or package>
 ```
+OR
+```bash
+go run ./cmd/gotsan-analyzer -l <path to file or package>
+```
+
+### Run Analysis Using go/analysis Analyzer Including Single Thread Deadlock Detection
+
+```bash
+go run ./cmd/gotsan-analyzer -s <path to file or package>
+```
 
 This uses `pipeline.GoAnalysisAnalyzer` as a thin adapter over the existing parse + SSA engine.
 
