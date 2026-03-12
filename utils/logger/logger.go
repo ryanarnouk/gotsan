@@ -32,3 +32,9 @@ func Infof(format string, args ...any) {
 		fmt.Printf(format+"\n", args...)
 	}
 }
+
+func Warnf(format string, args ...any) {
+	if currentLevel <= Warn {
+		fmt.Printf("[WARNING] "+format+"\n", args...)
+	}
+}

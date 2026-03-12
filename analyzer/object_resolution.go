@@ -19,26 +19,6 @@ func findInParams(fn *ssa.Function, name string) types.Object {
 	return nil
 }
 
-func findInReceiverFields(fn *ssa.Function, name string) types.Object {
-	if len(fn.Params) == 0 {
-		return nil
-	}
-
-	// Use a helper to peel away pointers and find the underlying struct
-	strct, ok := getUnderlyingStruct(fn.Params[0].Type())
-	if !ok {
-		return nil
-	}
-
-	for i := 0; i < strct.NumFields(); i++ {
-		field := strct.Field(i)
-		if field.Name() == name {
-			return field
-		}
-	}
-	return nil
-}
-
 func findInPackageGlobals(fn *ssa.Function, name string) types.Object {
 	if fn.Pkg != nil {
 		if member, ok := fn.Pkg.Members[name]; ok {
@@ -130,19 +110,15 @@ func resolveValueToObject(val ssa.Value) types.Object {
 }
 
 // resolveIdentifier handles simple identifiers (e.g., "mu") that are not accessed through
-// any structs
+// any structs. Receiver fields are intentionally not resolved here — annotations on methods
+// must use the explicit receiver prefix (e.g., "a.mu" rather than bare "mu").
 func resolveIdentifier(fn *ssa.Function, name string) types.Object {
-	// 1. Check Parameters
+	// 1. Check Parameters (includes the receiver variable itself)
 	if obj := findInParams(fn, name); obj != nil {
 		return obj
 	}
 
-	// 2. Check Implicit Receiver Fields
-	if obj := findInReceiverFields(fn, name); obj != nil {
-		return obj
-	}
-
-	// 3. Check Package Globals
+	// 2. Check Package Globals
 	return findInPackageGlobals(fn, name)
 }
 
@@ -232,12 +208,6 @@ func resolveObjectAtCallSite(call *ssa.Call, targetName string) types.Object {
 		if obj := findInPackageGlobals(callee, targetName); obj != nil {
 			return obj
 		}
-	}
-
-	// Fallback: interpret relative to receiver (first argument)
-	if len(call.Call.Args) > 0 {
-		receiver := call.Call.Args[0]
-		return resolveValueField(receiver, parts)
 	}
 
 	return nil

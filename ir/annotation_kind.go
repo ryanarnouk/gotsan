@@ -22,13 +22,13 @@ var AnnotationKindMap = map[string]AnnotationKind{
 func (k AnnotationKind) String() string {
 	switch k {
 	case Requires:
-		return "Requires"
+		return "requires"
 	case Acquires:
-		return "Acquires"
+		return "acquires"
 	case Returns:
-		return "Returns"
+		return "returns"
 	case GuardedBy:
-		return "GuardedBy"
+		return "guarded_by"
 	default:
 		return fmt.Sprintf("AnnotationKind(%d)", int(k))
 	}

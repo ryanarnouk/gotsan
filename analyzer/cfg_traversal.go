@@ -45,7 +45,7 @@ func functionDepthFirstSearch(
 
 	// Setup initial state
 	contract := contractForFunction(fn, registry)
-	initialLockset := createInitialLockset(fn, contract)
+	initialLockset := createInitialLockset(fn, contract, reporter, fset)
 
 	logger.Debugf("Function being analyzed: %s %v", fn.Name(), contract)
 
@@ -57,16 +57,16 @@ func functionDepthFirstSearch(
 
 	worklist := newBlockWorklist(entry)
 	visitCount := make(map[int]int)
-    const maxIterations = 10000000
+	const maxIterations = 10000000
 
 	for !worklist.Empty() {
 		curr := worklist.Pop()
 
 		visitCount[curr.Index]++
-        if visitCount[curr.Index] > maxIterations {
-            logger.Debugf("Cycle detected: Maximum iterations reached for block %d in %s", curr.Index, fn.Name())
-            continue 
-        }
+		if visitCount[curr.Index] > maxIterations {
+			logger.Debugf("Cycle detected: Maximum iterations reached for block %d in %s", curr.Index, fn.Name())
+			continue
+		}
 
 		entryState := blockEntryStates[curr.Index]
 		currentState := entryState.Copy()

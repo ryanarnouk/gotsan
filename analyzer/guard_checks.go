@@ -121,8 +121,9 @@ func checkGuardedByAccess(
 
 	requiredLock := resolveGuardLockObject(fn, addr, invariant.MutexName)
 	if requiredLock == nil {
-		logger.Debugf("Warning: Could not resolve guard lock '%s' in function %s for %s\n",
+		logger.Debugf("Could not resolve @guarded_by target '%s' in %s for field %s",
 			invariant.MutexName, fn.Name(), dataName)
+		reportUnresolvableAnnotation("guarded_by", invariant.MutexName, invariant.Pos, reporter, fset)
 		return
 	}
 

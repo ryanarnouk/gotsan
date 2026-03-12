@@ -1,8 +1,10 @@
 package analyzer
 
 import (
+	"go/token"
 	"gotsan/ir"
 	"gotsan/utils/logger"
+	"gotsan/utils/report"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -43,7 +45,7 @@ func contractForFunction(fn *ssa.Function, registry *ir.ContractRegistry) *ir.Fu
 
 // Creates the initial lockset for a function, according to the Requires
 // tag that is provided, and matches the function contract
-func createInitialLockset(fn *ssa.Function, contract *ir.FunctionContract) LockSet {
+func createInitialLockset(fn *ssa.Function, contract *ir.FunctionContract, reporter *report.Reporter, fset *token.FileSet) LockSet {
 	// Setup initial state
 	initialLockset := make(LockSet)
 
@@ -53,10 +55,11 @@ func createInitialLockset(fn *ssa.Function, contract *ir.FunctionContract) LockS
 			obj := resolveObjectInScope(fn, expectation.Target)
 			if obj != nil {
 				initialLockset[obj] = true
-				logger.Debugf("Initialized path with lock: %v\n", obj.Name())
+				logger.Debugf("Initialized path with lock: %v", obj.Name())
 			} else {
-				logger.Debugf("Warning: Could not resolve lock target '%s' in function %s\n",
+				logger.Debugf("Could not resolve @requires target '%s' in %s — reported at call sites",
 					expectation.Target, fn.Name())
+				reportUnresolvableAnnotation(ir.Requires.String(), expectation.Target, contract.Pos, reporter, fset)
 			}
 		}
 	}
