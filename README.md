@@ -26,23 +26,19 @@ go run main.go -pkg <path to pkg>
 
 Use `-v` flag for verbose logging features.
 
-### Run Analysis Using go/analysis Analyzer
+Use `-l` for lenient mode (utilizes heuristics to lower warnings emitted based on observable goroutine paths in the code):
 
 ```bash
-go run ./cmd/gotsan-analyzer <path to file or package>
-```
-OR
-```bash
-go run ./cmd/gotsan-analyzer -l <path to file or package>
+go run main.go -pkg <path to pkg> -l
 ```
 
-### Run Analysis Using go/analysis Analyzer Including Single Thread Deadlock Detection
+Use `-s` for strict mode (does not assume anything about the thread the code is running in):
 
 ```bash
-go run ./cmd/gotsan-analyzer -s <path to file or package>
+go run main.go -pkg <path to pkg> -s
 ```
 
-This uses `pipeline.GoAnalysisAnalyzer` as a thin adapter over the existing parse + SSA engine.
+`-l` and `-s` are mutually exclusive.
 
 ## Project Structure
 - `/analyzer`: SSA and CFG analysis

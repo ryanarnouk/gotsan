@@ -143,7 +143,7 @@ func reportUnresolvableAnnotation(
 	}
 
 	position := fset.Position(pos)
-	reporter.WarnAnnotation(report.Diagnostic{
+	reporter.Warn(report.Diagnostic{
 		Pos:     pos,
 		File:    position.Filename,
 		Line:    position.Line,
@@ -230,12 +230,11 @@ func reportGoroutineLockOrderInversion(
 	}
 
 	reporter.Warn(report.Diagnostic{
-		Pos:      goA.Pos(),
-		File:     posA.Filename,
-		Line:     posA.Line,
-		Column:   posA.Column,
-		Severity: "warning",
-		Message:  msg,
+		Pos:     goA.Pos(),
+		File:    posA.Filename,
+		Line:    posA.Line,
+		Column:  posA.Column,
+		Message: msg,
 	})
 }
 
@@ -276,11 +275,10 @@ func reportSingleThreadedLockOrderInversion(
 	}
 
 	reporter.Warn(report.Diagnostic{
-		Pos:      callA.Pos(),
-		File:     posA.Filename,
-		Line:     posA.Line,
-		Column:   posA.Column,
-		Severity: "warning",
-		Message:  msg,
+		Pos:     callA.Pos(),
+		File:    posA.Filename,
+		Line:    posA.Line,
+		Column:  posA.Column,
+		Message: msg,
 	})
 }
