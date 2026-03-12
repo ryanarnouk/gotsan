@@ -36,12 +36,12 @@ type Account struct {
 
 // depositUnsafe adds money to balance without acquiring a lock.
 //
-// @requires(mu)
+// @requires(a.mu)
 func (a *Account) depositUnsafe(amount int) {
 	a.balance += amount
 }
 
-// @acquires(mu)
+// @acquires(a.mu)
 func (a *Account) helperFunction() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -51,7 +51,7 @@ func (a *Account) helperFunction() int {
 
 // Deposit safely adds money and releases the lock before returning.
 //
-// @acquires(mu)
+// @acquires(a.mu)
 func (a *Account) Deposit(amount int) {
 	a.mu.Lock()         // acquires the lock
 	defer a.mu.Unlock() // releases on function exit
@@ -69,7 +69,7 @@ func (a *Account) Deposit(amount int) {
 }
 
 // Deposit within an anonymous function that lets go of the lock prematurely and calls depositUnsafe
-// @acquires(mu)
+// @acquires(a.mu)
 func (a *Account) DepositAnonFunc(amount int) {
 	a.mu.Lock()         // acquires the lock
 	defer a.mu.Unlock() // releases on function exit
@@ -84,8 +84,8 @@ func (a *Account) DepositAnonFunc(amount int) {
 
 // DepositAndHold safely adds money and returns while keeping the lock held.
 //
-// @acquires(mu)
-// @returns(mu)
+// @acquires(a.mu)
+// @returns(a.mu)
 func (a *Account) DepositAndHold(amount int) *Account {
 	a.mu.Lock() // acquires the lock
 	a.balance += amount
@@ -94,7 +94,7 @@ func (a *Account) DepositAndHold(amount int) *Account {
 
 // Balance safely returns the account balance, releasing the lock before returning.
 //
-// @acquires(mu)
+// @acquires(a.mu)
 func (a *Account) Balance() int {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -103,7 +103,7 @@ func (a *Account) Balance() int {
 
 // BadReadBalance demonstrates incorrect access to a guarded field.
 //
-// @acquires(mu)
+// @acquires(a.mu)
 func (a *Account) BadReadBalance() int {
 	// Forgot to lock balance
 	return a.balance // should trigger @guarded_by warning
@@ -115,7 +115,7 @@ func (a *Account) BadCallDepositUnsafe(amount int) {
 	a.depositUnsafe(amount) // should trigger @requires warning
 }
 
-// @requires(mu)
+// @requires(a.mu)
 func (a *Account) Withdraw(amount int) {
 	if a.balance < 0 {
 		return
@@ -126,8 +126,8 @@ func (a *Account) Withdraw(amount int) {
 
 // An example of using an alias for the lock name and ensuring
 // that by using the SSA form, this can be tracked
-// @acquires(mu)
-// @returns(mu)
+// @acquires(a.mu)
+// @returns(a.mu)
 func (a *Account) WithdrawWithAliasingLock(amount int) {
 	alias := &a.mu
 	alias.Lock()

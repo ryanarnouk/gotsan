@@ -43,7 +43,7 @@ func (e *Engine) ProcessWithCallback(o *Order, callback func(float64)) {
 // Interfaces have an unknown type at compile time, how to handle?
 
 type Auditor interface {
-	// @requires(mu)
+	// @requires(book.mu)
 	Audit(book *OrderBook)
 }
 

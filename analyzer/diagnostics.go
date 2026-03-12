@@ -45,18 +45,17 @@ func reportMissingLock(
 	fset *token.FileSet,
 ) {
 	if reporter == nil || fset == nil {
-		logger.Infof("ERROR: Call to %s requires lock %s, but it's not held\n", callee.Name(), target)
+		logger.Warnf("Call to %s requires lock %s, but it's not held", callee.Name(), target)
 		return
 	}
 
 	position := fset.Position(msg.Pos())
 	reporter.Warn(report.Diagnostic{
-		Pos:      msg.Pos(),
-		File:     position.Filename,
-		Line:     position.Line,
-		Column:   position.Column,
-		Severity: "warning",
-		Message:  "Call to " + callee.Name() + " requires lock " + target + ", but it's not held",
+		Pos:     msg.Pos(),
+		File:    position.Filename,
+		Line:    position.Line,
+		Column:  position.Column,
+		Message: "Call to " + callee.Name() + " requires lock " + target + ", but it's not held",
 	})
 }
 
@@ -68,18 +67,17 @@ func reportGuardViolation(
 	fset *token.FileSet,
 ) {
 	if reporter == nil || fset == nil {
-		logger.Infof("ERROR: Access to %s requires lock %s, but it's not held\n", dataName, mutexName)
+		logger.Warnf("Access to %s requires lock %s, but it's not held", dataName, mutexName)
 		return
 	}
 
 	position := fset.Position(instr.Pos())
 	reporter.Warn(report.Diagnostic{
-		Pos:      instr.Pos(),
-		File:     position.Filename,
-		Line:     position.Line,
-		Column:   position.Column,
-		Severity: "warning",
-		Message:  "Access to " + dataName + " requires lock " + mutexName + ", but it's not held",
+		Pos:     instr.Pos(),
+		File:    position.Filename,
+		Line:    position.Line,
+		Column:  position.Column,
+		Message: "Access to " + dataName + " requires lock " + mutexName + ", but it's not held",
 	})
 }
 
@@ -91,18 +89,17 @@ func reportAlreadyAcquiredLock(
 	fset *token.FileSet,
 ) {
 	if reporter == nil || fset == nil {
-		logger.Infof("ERROR: Call to %s acquires lock %s, but it is already held\n", callee.Name(), target)
+		logger.Warnf("Call to %s acquires lock %s, but it is already held", callee.Name(), target)
 		return
 	}
 
 	position := fset.Position(msg.Pos())
 	reporter.Warn(report.Diagnostic{
-		Pos:      msg.Pos(),
-		File:     position.Filename,
-		Line:     position.Line,
-		Column:   position.Column,
-		Severity: "warning",
-		Message:  "Call to " + callee.Name() + " acquires lock " + target + ", but it is already held",
+		Pos:     msg.Pos(),
+		File:    position.Filename,
+		Line:    position.Line,
+		Column:  position.Column,
+		Message: "Call to " + callee.Name() + " acquires lock " + target + ", but it is already held",
 	})
 }
 
@@ -119,18 +116,39 @@ func reportReturnMissingLock(
 	}
 
 	if reporter == nil || fset == nil {
-		logger.Infof("ERROR: Function %s returns without required lock %s held\n", fn.Name(), target)
+		logger.Warnf("Function %s returns without required lock %s held", fn.Name(), target)
 		return
 	}
 
 	position := fset.Position(pos)
 	reporter.Warn(report.Diagnostic{
-		Pos:      pos,
-		File:     position.Filename,
-		Line:     position.Line,
-		Column:   position.Column,
-		Severity: "warning",
-		Message:  "Function " + fn.Name() + " must return with lock " + target + " held",
+		Pos:     pos,
+		File:    position.Filename,
+		Line:    position.Line,
+		Column:  position.Column,
+		Message: "Function " + fn.Name() + " must return with lock " + target + " held",
+	})
+}
+
+func reportUnresolvableAnnotation(
+	kind string,
+	target string,
+	pos token.Pos,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if reporter == nil || fset == nil || pos == token.NoPos {
+		logger.Warnf("Annotation @%s(%s) could not be resolved to any variable", kind, target)
+		return
+	}
+
+	position := fset.Position(pos)
+	reporter.WarnAnnotation(report.Diagnostic{
+		Pos:     pos,
+		File:    position.Filename,
+		Line:    position.Line,
+		Column:  position.Column,
+		Message: "Annotation @" + kind + "(" + target + ") could not be resolved to any variable — check spelling and receiver prefix",
 	})
 }
 
@@ -161,18 +179,17 @@ func reportUndeclaredReturnedLock(
 	}
 
 	if reporter == nil || fset == nil {
-		logger.Infof("ERROR: Function %s returns lock(s) %s without declaring @returns(...)\n", fn.Name(), locks)
+		logger.Warnf("Function %s returns lock(s) %s without declaring @returns(...)", fn.Name(), locks)
 		return
 	}
 
 	position := fset.Position(pos)
 	reporter.Warn(report.Diagnostic{
-		Pos:      pos,
-		File:     position.Filename,
-		Line:     position.Line,
-		Column:   position.Column,
-		Severity: "warning",
-		Message:  "Function " + fn.Name() + " returns lock(s) " + locks + " but no @returns(...) contract is declared",
+		Pos:     pos,
+		File:    position.Filename,
+		Line:    position.Line,
+		Column:  position.Column,
+		Message: "Function " + fn.Name() + " returns lock(s) " + locks + " but no @returns(...) contract is declared",
 	})
 }
 

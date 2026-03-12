@@ -53,7 +53,7 @@ func checkReturnPath(
 		returns := contract.Expectations[ir.Returns]
 		if len(returns) > 0 {
 			for _, exp := range returns {
-				checkReturnsExpectation(fn, ret, state, reporter, fset, exp)
+				checkReturnsExpectation(fn, ret, state, reporter, fset, exp, contract.Pos)
 			}
 			return
 		}
@@ -70,9 +70,12 @@ func checkReturnsExpectation(
 	state *AnalysisState,
 	reporter *report.Reporter,
 	fset *token.FileSet,
-	exp ir.Requirement) {
+	exp ir.Requirement,
+	contractPos token.Pos,
+) {
 	requiredLockObject := resolveObjectInScope(fn, exp.Target)
 	if requiredLockObject == nil {
+		reportUnresolvableAnnotation(ir.Returns.String(), exp.Target, contractPos, reporter, fset)
 		return
 	}
 
@@ -87,6 +90,7 @@ func checkRequiresExpectation(exp ir.Requirement, calleeFn *ssa.Function, callSi
 	// Turn the mutex name in the annotation to an SSA object
 	requiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
 	if requiredLockObject == nil {
+		reportUnresolvableAnnotation(ir.Requires.String(), exp.Target, callSite.Pos(), reporter, fset)
 		return
 	}
 
@@ -101,6 +105,7 @@ func checkAcquiresExpectation(exp ir.Requirement, calleeFn *ssa.Function, callSi
 	// Turn the mutex name in the annotation to an SSA object
 	acquiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
 	if acquiredLockObject == nil {
+		reportUnresolvableAnnotation(ir.Acquires.String(), exp.Target, callSite.Pos(), reporter, fset)
 		return
 	}
 

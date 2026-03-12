@@ -35,10 +35,10 @@ func (r *Registry) GetAccount(id int) *Account {
 }
 
 // Case 3: The "Helper Function"
-// @requires(mu)
+// @requires(a.mu)
 // Should produce NO errors because initialLS pre-loads the lock.
 func (a *Account) updateBalanceUnsafe(amount int) {
-	a.balance += amount // Safe ONLY if @requires(mu) works
+	a.balance += amount // Safe ONLY if @requires(a.mu) works
 }
 
 // Case 4: The "Bad Caller"

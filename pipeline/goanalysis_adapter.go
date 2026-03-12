@@ -66,14 +66,14 @@ func runGoAnalysis(pass *analysis.Pass) (any, error) {
 	reporter := report.NewReporter()
 	AnalyzeSSAPackage(ssaResult.Pkg, registry, reporter, pass.Fset, strict)
 
-	for _, d := range reporter.Diagnostics {
+	for _, d := range reporter.Findings {
 		if d.Pos == 0 {
 			continue
 		}
 		pass.Report(analysis.Diagnostic{
 			Pos:      d.Pos,
 			Message:  d.Message,
-			Category: d.Severity,
+			Category: "analysis",
 		})
 	}
 

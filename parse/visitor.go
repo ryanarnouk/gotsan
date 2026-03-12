@@ -1,12 +1,11 @@
 package parse
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
 	"gotsan/ir"
-	"gotsan/utils"
+	"gotsan/utils/logger"
 	"strings"
 )
 
@@ -14,6 +13,19 @@ import (
 type Visitor struct {
 	Fset     *token.FileSet
 	Registry *ir.ContractRegistry
+}
+
+var parseWarningsHeaderPrinted bool
+
+func emitParseWarning(format string, args ...any) {
+	if !parseWarningsHeaderPrinted {
+		logger.Infof("")
+		logger.Infof("============================================================")
+		logger.Infof("PARSING LOGS (non-analysis warnings)")
+		logger.Infof("============================================================")
+		parseWarningsHeaderPrinted = true
+	}
+	logger.Warnf(format, args...)
 }
 
 // Given a CommentGroup AST type, loop through and return all discovered
@@ -38,7 +50,7 @@ func (v *Visitor) parseAnnotations(groups ...*ast.CommentGroup) []Annotation {
 func (v *Visitor) registerDataInvariants(annotations []Annotation, names []*ast.Ident, prefix string, pos token.Pos) {
 	for _, ann := range annotations {
 		if ann.Kind != ir.GuardedBy {
-			fmt.Printf("[WARNING]: unexpected annotation %v at %s\n", ann.Kind.String(), utils.FormatPos(v.Fset, pos))
+			emitParseWarning("Unexpected annotation @%s on a data field — only @guarded_by is valid here at %s", ann.Kind.String(), v.Fset.Position(pos))
 			continue
 		}
 
