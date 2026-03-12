@@ -5,6 +5,7 @@ import (
 	"gotsan/utils/logger"
 	"gotsan/utils/report"
 	"sort"
+	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/ssa"
@@ -142,7 +143,7 @@ func reportUnresolvableAnnotation(
 	}
 
 	position := fset.Position(pos)
-	reporter.WarnAnnotation(report.Diagnostic{
+	reporter.Warn(report.Diagnostic{
 		Pos:     pos,
 		File:    position.Filename,
 		Line:    position.Line,
@@ -189,5 +190,95 @@ func reportUndeclaredReturnedLock(
 		Line:    position.Line,
 		Column:  position.Column,
 		Message: "Function " + fn.Name() + " returns lock(s) " + locks + " but no @returns(...) contract is declared",
+	})
+}
+
+func reportGoroutineLockOrderInversion(
+	goA *ssa.Go,
+	goB *ssa.Go,
+	fnA *ssa.Function,
+	fnB *ssa.Function,
+	firstLock string,
+	secondLock string,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if goA == nil || reporter == nil || fset == nil {
+		return
+	}
+
+	posA := fset.Position(goA.Pos())
+	lineB := 0
+	if goB != nil {
+		lineB = fset.Position(goB.Pos()).Line
+	}
+
+	nameA := "<unknown>"
+	if fnA != nil {
+		nameA = fnA.Name()
+	}
+	nameB := "<unknown>"
+	if fnB != nil {
+		nameB = fnB.Name()
+	}
+
+	msg := "Potential deadlock between goroutines: " +
+		"go " + nameA + " acquires " + firstLock + " before " + secondLock +
+		", while go " + nameB + " acquires " + secondLock + " before " + firstLock
+	if lineB > 0 {
+		msg += " (other goroutine starts near line " + strconv.Itoa(lineB) + ")"
+	}
+
+	reporter.Warn(report.Diagnostic{
+		Pos:     goA.Pos(),
+		File:    posA.Filename,
+		Line:    posA.Line,
+		Column:  posA.Column,
+		Message: msg,
+	})
+}
+
+func reportSingleThreadedLockOrderInversion(
+	callA *ssa.Call,
+	callB *ssa.Call,
+	fnA *ssa.Function,
+	fnB *ssa.Function,
+	firstLock string,
+	secondLock string,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if callA == nil || reporter == nil || fset == nil {
+		return
+	}
+
+	posA := fset.Position(callA.Pos())
+	lineB := 0
+	if callB != nil {
+		lineB = fset.Position(callB.Pos()).Line
+	}
+
+	nameA := "<unknown>"
+	if fnA != nil {
+		nameA = fnA.Name()
+	}
+	nameB := "<unknown>"
+	if fnB != nil {
+		nameB = fnB.Name()
+	}
+
+	msg := "Potential deadlock in single-threaded code: " +
+		"call to " + nameA + " acquires " + firstLock + " before " + secondLock +
+		", while call to " + nameB + " acquires " + secondLock + " before " + firstLock
+	if lineB > 0 {
+		msg += " (other call near line " + strconv.Itoa(lineB) + ")"
+	}
+
+	reporter.Warn(report.Diagnostic{
+		Pos:     callA.Pos(),
+		File:    posA.Filename,
+		Line:    posA.Line,
+		Column:  posA.Column,
+		Message: msg,
 	})
 }

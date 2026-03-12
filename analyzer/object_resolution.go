@@ -183,11 +183,7 @@ func resolveParamField(callee *ssa.Function, callArgs []ssa.Value, parts []strin
 	return nil
 }
 
-// Resolve object at the location of the call of a function
-// This is used to resolve the mutex names in the annotations
-// (of the callee function) to the SSA object and check the lockset
-func resolveObjectAtCallSite(call *ssa.Call, targetName string) types.Object {
-	callee := call.Call.StaticCallee()
+func resolveObjectAtInvocation(callee *ssa.Function, callArgs []ssa.Value, targetName string) types.Object {
 	if callee == nil || targetName == "" {
 		return nil
 	}
@@ -197,13 +193,13 @@ func resolveObjectAtCallSite(call *ssa.Call, targetName string) types.Object {
 		return nil
 	}
 
-	// Try mapping to explicit parameters
-	obj := resolveParamField(callee, call.Call.Args, parts)
+	// Try mapping to explicit parameters.
+	obj := resolveParamField(callee, callArgs, parts)
 	if obj != nil {
 		return obj
 	}
 
-	// Fallback for package-level identifiers (e.g., @requires(mu) where mu is a global)
+	// Fallback for package-level identifiers (e.g., @requires(mu) where mu is a global).
 	if len(parts) == 1 {
 		if obj := findInPackageGlobals(callee, targetName); obj != nil {
 			return obj
@@ -211,5 +207,16 @@ func resolveObjectAtCallSite(call *ssa.Call, targetName string) types.Object {
 	}
 
 	return nil
+}
 
+// Resolve object at the location of the call of a function
+// This is used to resolve the mutex names in the annotations
+// (of the callee function) to the SSA object and check the lockset
+func resolveObjectAtCallSite(call *ssa.Call, targetName string) types.Object {
+	callee := call.Call.StaticCallee()
+	if callee == nil {
+		return nil
+	}
+
+	return resolveObjectAtInvocation(callee, call.Call.Args, targetName)
 }

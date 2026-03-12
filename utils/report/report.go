@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"go/token"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 type Diagnostic struct {
@@ -15,17 +17,44 @@ type Diagnostic struct {
 }
 
 type Reporter struct {
-	Findings []Diagnostic // all analyzer findings (including unresolved annotation targets)
+	Findings []Diagnostic
+	// seen holds diagnostics that have already been reported; used to avoid duplicates.
+	seen map[string]struct{}
+}
+
+// NewReporter constructs a Reporter with internal deduplication state initialized.
+func NewReporter() *Reporter {
+	return &Reporter{seen: make(map[string]struct{})}
 }
 
 // Warn records an analysis finding.
 func (r *Reporter) Warn(d Diagnostic) {
+	if r == nil {
+		return
+	}
+	if r.seen == nil {
+		// if the reporter was constructed manually without NewReporter, lazily allocate
+		r.seen = make(map[string]struct{})
+	}
+	key := diagnosticKey(d)
+	if _, ok := r.seen[key]; ok {
+		return
+	}
+	r.seen[key] = struct{}{}
 	r.Findings = append(r.Findings, d)
 }
 
-// WarnAnnotation records annotation/contract issues in the same stream.
-func (r *Reporter) WarnAnnotation(d Diagnostic) {
-	r.Findings = append(r.Findings, d)
+func diagnosticKey(d Diagnostic) string {
+	var b strings.Builder
+	b.Grow(len(d.File) + len(d.Message) + 32)
+	b.WriteString(d.File)
+	b.WriteString(":")
+	b.WriteString(strconv.Itoa(d.Line))
+	b.WriteString(":")
+	b.WriteString(strconv.Itoa(d.Column))
+	b.WriteString(":")
+	b.WriteString(d.Message)
+	return b.String()
 }
 
 func (r *Reporter) Print() {

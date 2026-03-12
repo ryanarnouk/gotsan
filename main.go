@@ -20,8 +20,15 @@ func main() {
 	// Parse the command line arg
 	filePath := flag.String("file", "", "path to Go source file to analyze")
 	pkgPattern := flag.String("pkg", "", "Go package to analyze")
+	lenient := flag.Bool("l", false, "lenient mode: only detect deadlocks involving goroutines")
+	strict := flag.Bool("s", false, "strict mode: detect deadlocks in single-threaded code as well")
 	verbose := flag.Bool("v", false, "enable debug logs")
 	flag.Parse()
+
+	if *lenient && *strict {
+		fmt.Println("cannot specify both -l and -s flags")
+		os.Exit(1)
+	}
 
 	if *verbose {
 		logger.SetLevel(logger.Debug)
@@ -71,14 +78,17 @@ func main() {
 	// 2. Analysis Phase
 	prog, ssaPkgs := ssautil.Packages(pkgs, ssa.BuilderMode(0))
 	prog.Build()
-	reporter := &report.Reporter{}
+
+	reporter := report.NewReporter()
+
+	strictMode := *strict
 
 	for _, ssaPkg := range ssaPkgs {
 		if ssaPkg == nil {
 			continue
 		}
 
-		pipeline.AnalyzeSSAPackage(ssaPkg, registry, reporter, fset)
+		pipeline.AnalyzeSSAPackage(ssaPkg, registry, reporter, fset, strictMode)
 	}
 
 	reporter.Print()

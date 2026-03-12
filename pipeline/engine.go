@@ -26,10 +26,10 @@ func PopulateRegistryFromFiles(registry *ir.ContractRegistry, files []*ast.File,
 	}
 }
 
-func AnalyzeSSAPackage(ssaPkg *ssa.Package, registry *ir.ContractRegistry, reporter *report.Reporter, fset *token.FileSet) {
+func AnalyzeSSAPackage(ssaPkg *ssa.Package, registry *ir.ContractRegistry, reporter *report.Reporter, fset *token.FileSet, strictMode bool) {
 	if ssaPkg == nil {
 		return
 	}
 
-	analyzer.Run(ssaPkg, registry, reporter, fset)
+	analyzer.Run(ssaPkg, registry, reporter, fset, strictMode)
 }
