@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"go/token"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 type Diagnostic struct {
@@ -16,7 +18,7 @@ type Diagnostic struct {
 
 type Reporter struct {
 	Findings []Diagnostic
-	// seen holds messages that have already been reported; used to avoid duplicates.
+	// seen holds diagnostics that have already been reported; used to avoid duplicates.
 	seen map[string]struct{}
 }
 
@@ -34,12 +36,25 @@ func (r *Reporter) Warn(d Diagnostic) {
 		// if the reporter was constructed manually without NewReporter, lazily allocate
 		r.seen = make(map[string]struct{})
 	}
-	// key by message only (dedupe identical error text)
-	if _, ok := r.seen[d.Message]; ok {
+	key := diagnosticKey(d)
+	if _, ok := r.seen[key]; ok {
 		return
 	}
-	r.seen[d.Message] = struct{}{}
+	r.seen[key] = struct{}{}
 	r.Findings = append(r.Findings, d)
+}
+
+func diagnosticKey(d Diagnostic) string {
+	var b strings.Builder
+	b.Grow(len(d.File) + len(d.Message) + 32)
+	b.WriteString(d.File)
+	b.WriteString(":")
+	b.WriteString(strconv.Itoa(d.Line))
+	b.WriteString(":")
+	b.WriteString(strconv.Itoa(d.Column))
+	b.WriteString(":")
+	b.WriteString(d.Message)
+	return b.String()
 }
 
 func (r *Reporter) Print() {
