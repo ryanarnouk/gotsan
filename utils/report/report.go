@@ -16,9 +16,28 @@ type Diagnostic struct {
 
 type Reporter struct {
 	Diagnostics []Diagnostic
+	// seen holds messages that have already been reported; used to avoid duplicates.
+	seen map[string]struct{}
+}
+
+// NewReporter constructs a Reporter with internal deduplication state initialized.
+func NewReporter() *Reporter {
+	return &Reporter{seen: make(map[string]struct{})}
 }
 
 func (r *Reporter) Warn(d Diagnostic) {
+	if r == nil {
+		return
+	}
+	if r.seen == nil {
+		// if the reporter was constructed manually without NewReporter, lazily allocate
+		r.seen = make(map[string]struct{})
+	}
+	// key by message only (dedupe identical error text)
+	if _, ok := r.seen[d.Message]; ok {
+		return
+	}
+	r.seen[d.Message] = struct{}{}
 	r.Diagnostics = append(r.Diagnostics, d)
 }
 

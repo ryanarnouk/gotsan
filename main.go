@@ -71,7 +71,8 @@ func main() {
 	// 2. Analysis Phase
 	prog, ssaPkgs := ssautil.Packages(pkgs, ssa.BuilderMode(0))
 	prog.Build()
-	reporter := &report.Reporter{}
+
+	reporter := report.NewReporter()
 
 	for _, ssaPkg := range ssaPkgs {
 		if ssaPkg == nil {

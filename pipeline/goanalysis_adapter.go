@@ -28,7 +28,7 @@ func runGoAnalysis(pass *analysis.Pass) (any, error) {
 	// Get flag values
 	lenientFlag := pass.Analyzer.Flags.Lookup("l")
 	strictFlag := pass.Analyzer.Flags.Lookup("s")
-	
+
 	strict := false
 	if strictFlag != nil {
 		if bv, ok := strictFlag.Value.(flag.Getter); ok {
@@ -37,7 +37,7 @@ func runGoAnalysis(pass *analysis.Pass) (any, error) {
 			}
 		}
 	}
-	
+
 	if lenientFlag != nil && strictFlag != nil {
 		if bvL, okL := lenientFlag.Value.(flag.Getter); okL {
 			if bvS, okS := strictFlag.Value.(flag.Getter); okS {
@@ -63,7 +63,7 @@ func runGoAnalysis(pass *analysis.Pass) (any, error) {
 		return nil, nil
 	}
 
-	reporter := &report.Reporter{}
+	reporter := report.NewReporter()
 	AnalyzeSSAPackage(ssaResult.Pkg, registry, reporter, pass.Fset, strict)
 
 	for _, d := range reporter.Diagnostics {
