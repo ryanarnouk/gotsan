@@ -44,3 +44,23 @@ go run main.go -pkg <path to pkg> -s
 - `/analyzer`: SSA and CFG analysis
 - `/ir`: internal representation for the analysis tool after the parser completes 
 - `/parse`: parse annotations from the source file or package
+
+### Tests
+
+Run all tests from repo root:
+
+```bash
+go test ./...
+```
+
+Run examples end-to-end suite only:
+
+```bash
+go test ./tests/e2e
+```
+
+Regenerate expected snapshot files after intentional analyzer output changes:
+
+```bash
+go test ./tests/e2e -run Expected -update
+```

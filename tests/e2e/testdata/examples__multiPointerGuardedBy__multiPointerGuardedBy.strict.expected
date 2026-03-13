@@ -1,0 +1,3 @@
+examples/multiPointerGuardedBy/multiPointerGuardedBy.go:22:40: Access to Struct2.value requires lock mu2, but it's not held
+examples/multiPointerGuardedBy/multiPointerGuardedBy.go:24:27: Access to Struct2.value requires lock mu2, but it's not held
+examples/multiPointerGuardedBy/multiPointerGuardedBy.go:29:33: Access to Struct2.value requires lock mu2, but it's not held

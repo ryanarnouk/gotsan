@@ -1,0 +1,9 @@
+examples/simple/simple.go:109:11: Access to Account.balance requires lock mu, but it's not held
+examples/simple/simple.go:115:17: Call to depositUnsafe requires lock a.mu, but it's not held
+examples/simple/simple.go:121:3: Function Withdraw returns lock(s) mu but no @returns(...) contract is declared
+examples/simple/simple.go:125:1: Function Withdraw returns lock(s) mu but no @returns(...) contract is declared
+examples/simple/simple.go:151:1: Function doesNotAlwaysUnlock must return with lock a.mu held
+examples/simple/simple.go:155:23: Call to depositUnsafe requires lock a.mu, but it's not held
+examples/simple/simple.go:42:1: Function depositUnsafe returns lock(s) mu but no @returns(...) contract is declared
+examples/simple/simple.go:68:18: Call to helperFunction acquires lock a.mu, but it is already held
+examples/simple/simple.go:79:18: Call to depositUnsafe requires lock a.mu, but it's not held

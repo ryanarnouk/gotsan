@@ -1,0 +1,3 @@
+examples/simple2/simple2.go:31:3: Function GetAccount returns lock(s) mu but no @returns(...) contract is declared
+examples/simple2/simple2.go:42:1: Function updateBalanceUnsafe returns lock(s) mu but no @returns(...) contract is declared
+examples/simple2/simple2.go:48:23: Call to updateBalanceUnsafe requires lock a.mu, but it's not held

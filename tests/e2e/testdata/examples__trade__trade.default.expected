@@ -1,0 +1,7 @@
+examples/trade/trade.go:100:1: Function SelectAudit returns lock(s) mu but no @returns(...) contract is declared
+examples/trade/trade.go:104:26: Access to OrderBook.orders requires lock mu, but it's not held
+examples/trade/trade.go:107:23: Call to ProcessWithCallback requires lock e.book.mu, but it's not held
+examples/trade/trade.go:41:1: Function ProcessWithCallback returns lock(s) mu but no @returns(...) contract is declared
+examples/trade/trade.go:56:13: Access to OrderBook.orders requires lock mu, but it's not held
+examples/trade/trade.go:84:24: Call to RecursiveStateCheck acquires lock e.stateMu, but it is already held
+examples/trade/trade.go:93:3: Function SelectAudit returns lock(s) mu but no @returns(...) contract is declared

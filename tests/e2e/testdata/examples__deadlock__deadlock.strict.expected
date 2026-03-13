@@ -1,0 +1,9 @@
+examples/deadlock/deadlock.go:104:30: Access to File.name requires lock mu, but it's not held
+examples/deadlock/deadlock.go:104:45: Access to File.size requires lock mu, but it's not held
+examples/deadlock/deadlock.go:104:57: Access to File.parent requires lock mu, but it's not held
+examples/deadlock/deadlock.go:105:7: Access to Dir.files requires lock mu, but it's not held
+examples/deadlock/deadlock.go:27:30: Annotation @acquires(mu) could not be resolved to any variable — check spelling and receiver prefix
+examples/deadlock/deadlock.go:70:32: Annotation @acquires(mu) could not be resolved to any variable — check spelling and receiver prefix
+examples/deadlock/deadlock.go:81:18: Annotation @acquires(mu) could not be resolved to any variable — check spelling and receiver prefix
+examples/deadlock/deadlock.go:89:9: Annotation @acquires(mu) could not be resolved to any variable — check spelling and receiver prefix
+examples/deadlock/deadlock.go:96:9: Annotation @acquires(mu) could not be resolved to any variable — check spelling and receiver prefix

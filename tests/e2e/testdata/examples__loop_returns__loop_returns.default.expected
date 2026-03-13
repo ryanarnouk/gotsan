@@ -1,0 +1,4 @@
+examples/loop_returns/loop_returns.go:29:4: Function loopBreakOrUnlock must return with lock mu held
+examples/loop_returns/loop_returns.go:33:2: Function loopBreakOrUnlock must return with lock mu held
+examples/loop_returns/loop_returns.go:63:4: Function loopDynamicCondition must return with lock mu3 held
+examples/loop_returns/loop_returns.go:73:2: Function loopDynamicCondition must return with lock mu3 held

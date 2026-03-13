@@ -1,0 +1,8 @@
+examples/lessSimple/lessSimple.go:30:1: Function internalAudit returns lock(s) mu but no @returns(...) contract is declared
+examples/lessSimple/lessSimple.go:38:1: Function TransferUnsafe returns lock(s) mu but no @returns(...) contract is declared
+examples/lessSimple/lessSimple.go:56:18: Call to TransferUnsafe requires lock from.mu, but it's not held
+examples/lessSimple/lessSimple.go:56:18: Call to TransferUnsafe requires lock to.mu, but it's not held
+examples/lessSimple/lessSimple.go:66:3: Function InconsistentLock returns lock(s) registryMu but no @returns(...) contract is declared
+examples/lessSimple/lessSimple.go:74:11: Access to Bank.accounts requires lock registryMu, but it's not held
+examples/lessSimple/lessSimple.go:78:33: Access to Account.balance requires lock mu, but it's not held
+examples/lessSimple/lessSimple.go:81:20: Call to internalAudit requires lock a.mu, but it's not held
