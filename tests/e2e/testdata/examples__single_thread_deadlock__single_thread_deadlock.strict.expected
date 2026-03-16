@@ -1,0 +1,1 @@
+examples/single_thread_deadlock/single_thread_deadlock.go:43:20: Potential deadlock in single-threaded code: call to acquireBoth_1then2 acquires mu1 before mu2, while call to acquireBoth_2then1 acquires mu2 before mu1 (other call near line 44)

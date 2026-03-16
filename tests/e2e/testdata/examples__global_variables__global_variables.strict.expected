@@ -1,0 +1,2 @@
+examples/global_variables/global_variables.go:17:1: Function unguardedLockAccess returns lock(s) mu but no @returns(...) contract is declared
+examples/global_variables/global_variables.go:20:21: Call to unguardedLockAccess requires lock mu, but it's not held

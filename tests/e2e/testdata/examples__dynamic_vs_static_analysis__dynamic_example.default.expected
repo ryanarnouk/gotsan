@@ -1,0 +1,1 @@
+examples/dynamic_vs_static_analysis/dynamic_example.go:18:3: Access to data requires lock mu, but it's not held
