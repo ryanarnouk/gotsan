@@ -117,6 +117,93 @@ func acquireOrderForCall(callInstr *ssa.Call, callee *ssa.Function, contract *ir
 	return order
 }
 
+func appendLockIfMissing(order []lockRef, lock lockRef) []lockRef {
+	for _, existing := range order {
+		if sameLock(existing, lock) {
+			return order
+		}
+	}
+
+	return append(order, lock)
+}
+
+func collectTransitiveAcquireOrder(
+	callee *ssa.Function,
+	invocationArgs []ssa.Value,
+	registry *ir.ContractRegistry,
+	active map[*ssa.Function]bool,
+) []lockRef {
+	if callee == nil || registry == nil {
+		return nil
+	}
+
+	if active[callee] {
+		// Break cycles while preserving lock order discovered so far.
+		return nil
+	}
+
+	active[callee] = true
+	defer delete(active, callee)
+
+	order := make([]lockRef, 0)
+
+	contract := contractForFunction(callee, registry)
+	if contract != nil {
+		acquires := contract.Expectations[ir.Acquires]
+		for _, req := range acquires {
+			obj := resolveObjectAtInvocation(callee, invocationArgs, req.Target)
+			order = appendLockIfMissing(order, lockRef{Obj: obj, Name: req.Target})
+		}
+	}
+
+	for _, block := range callee.Blocks {
+		for _, instr := range block.Instrs {
+			callInstr, ok := instr.(*ssa.Call)
+			if !ok {
+				continue
+			}
+
+			nestedCallee := callInstr.Call.StaticCallee()
+			if nestedCallee == nil {
+				continue
+			}
+
+			nestedOrder := collectTransitiveAcquireOrder(nestedCallee, callInstr.Call.Args, registry, active)
+			for _, lock := range nestedOrder {
+				order = appendLockIfMissing(order, lock)
+			}
+		}
+	}
+
+	return order
+}
+
+func acquireOrderForGoSite(goInstr *ssa.Go, registry *ir.ContractRegistry) []lockRef {
+	if goInstr == nil || registry == nil {
+		return nil
+	}
+
+	callee := goInstr.Call.StaticCallee()
+	if callee == nil {
+		return nil
+	}
+
+	return collectTransitiveAcquireOrder(callee, goInstr.Call.Args, registry, map[*ssa.Function]bool{})
+}
+
+func acquireOrderForCallSite(callInstr *ssa.Call, registry *ir.ContractRegistry) []lockRef {
+	if callInstr == nil || registry == nil {
+		return nil
+	}
+
+	callee := callInstr.Call.StaticCallee()
+	if callee == nil {
+		return nil
+	}
+
+	return collectTransitiveAcquireOrder(callee, callInstr.Call.Args, registry, map[*ssa.Function]bool{})
+}
+
 func detectGoroutineLockOrderInversions(
 	fn *ssa.Function,
 	registry *ir.ContractRegistry,
@@ -140,12 +227,7 @@ func detectGoroutineLockOrderInversions(
 				continue
 			}
 
-			contract := contractForFunction(callee, registry)
-			if contract == nil {
-				continue
-			}
-
-			order := acquireOrderForGoCall(goInstr, callee, contract)
+			order := acquireOrderForGoSite(goInstr, registry)
 			if len(order) < 2 {
 				continue
 			}
@@ -202,12 +284,7 @@ func detectSingleThreadedLockOrderInversions(
 				continue
 			}
 
-			contract := contractForFunction(callee, registry)
-			if contract == nil {
-				continue
-			}
-
-			order := acquireOrderForCall(callInstr, callee, contract)
+			order := acquireOrderForCallSite(callInstr, registry)
 			if len(order) < 2 {
 				continue
 			}
