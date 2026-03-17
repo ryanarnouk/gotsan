@@ -1,5 +1,9 @@
 #!/bin/bash
 
+set -o pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 count=0
 start=$(date +%s.%N)
 
@@ -8,8 +12,7 @@ while true; do
 
     run_start=$(date +%s.%N)
 
-    output=$(go run -race dynamic_example.go 2>&1)
-
+    output=$(go run -race "$script_dir/dynamic_example.go" 2>&1)
     run_end=$(date +%s.%N)
     run_time=$(echo "$run_end - $run_start" | bc)
 
