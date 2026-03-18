@@ -80,6 +80,75 @@ These are still useful to keep listed, but they are less direct fits for lock-an
 
 Summary: 14 mixed bugs and 25 channel-only bugs, for 67 total blocking tests.
 
-# Nonblocking
+# Nonblocking Shared-Memory Cases
 
-TODO
+Use this table to record:
+
+| Project | Issue | Bug Pattern | Annotated | Detection | Annotation Experience | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| grpc | 3090 | Data race errors | `[ ]` | `[ ]` |  |  |
+| grpc | 1748 | Data race errors | `[ ]` | `[ ]` |  |  |
+| etcd | 9446 | Data race errors | `[ ]` | `[ ]` |  |  |
+| etcd | 8194 | Data race errors | `[ ]` | `[ ]` |  |  |
+| etcd | 4876 | Data race errors | `[ ]` | `[ ]` |  |  |
+| istio | 16742 | Data race errors | `[ ]` | `[ ]` |  |  |
+| istio | 8214 | Data race errors | `[ ]` | `[ ]` |  |  |
+| istio | 8144 | Data race errors | `[ ]` | `[ ]` |  |  |
+| serving | 6472 | Data race errors | `[ ]` | `[ ]` |  |  |
+| serving | 3148 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 89164 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 88331 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 82550 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 82239 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 81148 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 81091 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 80284 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 79631 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 77796 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 49404 | Data race errors | `[ ]` | `[ ]` |  |  |
+| moby | 18412 | Data race errors / Order violation | `[ ]` | `[ ]` |  |  |
+
+Summary: 21 shared-memory data race nonblocking tests.
+
+## Other Nonblocking Cases
+
+These are still useful to keep listed, but they are less direct fits for lock-annotation evaluation.
+
+### Mixed Bugs
+
+| Project | Issues |
+| --- | --- |
+| grpc | 2371 |
+| serving | 5865 |
+
+### Channel / Message-Passing Only
+
+| Project | Issues |
+| --- | --- |
+| grpc | 1687 |
+| etcd | 3077 |
+| istio | 8967 |
+| serving | 3068 |
+
+### Anonymous Function Issues
+
+| Project | Issues |
+| --- | --- |
+| cockroach | 35501 |
+| kubernetes | 70892 |
+| moby | 22941, 27037 |
+
+### Testing Library Issues
+
+| Project | Issues |
+| --- | --- |
+| serving | 6171, 4908 |
+
+### WaitGroup Issues
+
+| Project | Issues |
+| --- | --- |
+| cockroach | 4407 |
+| kubernetes | 13058 |
+
+Summary: 14 other nonblocking tests (2 mixed, 4 channel-only, 4 anonymous function, 2 testing library, 2 WaitGroup), for 35 total nonblocking tests.
