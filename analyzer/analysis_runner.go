@@ -54,7 +54,7 @@ func findMethodsForType(
 	// Check the pointer to the type
 	ptrMset := pkg.Prog.MethodSets.MethodSet(types.NewPointer(t))
 	for i := range ptrMset.Len() {
-		if fn := pkg.Prog.MethodValue(ptrMset.At(i)); fn != nil {
+		if fn := pkg.Prog.MethodValue(ptrMset.At(i)); fn != nil && fn.Pkg == pkg {
 			analyzeFunction(fn, registry, reporter, fset, strictMode)
 		}
 	}

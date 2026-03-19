@@ -17,14 +17,20 @@ type Diagnostic struct {
 }
 
 type Reporter struct {
-	Findings []Diagnostic
+	Findings                 []Diagnostic
+	Warnings                 []Diagnostic
+	IgnoreMissingAnnotations bool
 	// seen holds diagnostics that have already been reported; used to avoid duplicates.
-	seen map[string]struct{}
+	seen         map[string]struct{}
+	seenWarnings map[string]struct{}
 }
 
 // NewReporter constructs a Reporter with internal deduplication state initialized.
 func NewReporter() *Reporter {
-	return &Reporter{seen: make(map[string]struct{})}
+	return &Reporter{
+		seen:         make(map[string]struct{}),
+		seenWarnings: make(map[string]struct{}),
+	}
 }
 
 // Warn records an analysis finding.
@@ -44,6 +50,28 @@ func (r *Reporter) Warn(d Diagnostic) {
 	r.Findings = append(r.Findings, d)
 }
 
+// WarnHeuristic records an advisory warning that should be printed separately
+// from core analysis findings.
+func (r *Reporter) WarnHeuristic(d Diagnostic) {
+	if r == nil {
+		return
+	}
+	if r.IgnoreMissingAnnotations {
+		return
+	}
+	if r.seenWarnings == nil {
+		r.seenWarnings = make(map[string]struct{})
+	}
+
+	key := diagnosticKey(d)
+	if _, ok := r.seenWarnings[key]; ok {
+		return
+	}
+
+	r.seenWarnings[key] = struct{}{}
+	r.Warnings = append(r.Warnings, d)
+}
+
 func diagnosticKey(d Diagnostic) string {
 	var b strings.Builder
 	b.Grow(len(d.File) + len(d.Message) + 32)
@@ -59,6 +87,7 @@ func diagnosticKey(d Diagnostic) string {
 
 func (r *Reporter) Print() {
 	sortDiagnostics(r.Findings)
+	sortDiagnostics(r.Warnings)
 
 	if len(r.Findings) > 0 {
 		fmt.Println()
@@ -66,6 +95,17 @@ func (r *Reporter) Print() {
 		fmt.Printf("GOTSAN REPORT - %d finding(s)\n", len(r.Findings))
 		fmt.Println("============================================================")
 		for _, d := range r.Findings {
+			fmt.Printf("%s:%d:%d: %s\n", d.File, d.Line, d.Column, d.Message)
+		}
+		fmt.Println("============================================================")
+	}
+
+	if len(r.Warnings) > 0 {
+		fmt.Println()
+		fmt.Println("============================================================")
+		fmt.Printf("MISSING ANNOTATION ADVISORY WARNINGS - %d warning(s)\n", len(r.Warnings))
+		fmt.Println("============================================================")
+		for _, d := range r.Warnings {
 			fmt.Printf("%s:%d:%d: %s\n", d.File, d.Line, d.Column, d.Message)
 		}
 		fmt.Println("============================================================")

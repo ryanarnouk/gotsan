@@ -33,3 +33,37 @@ func TestReporterDeduplication(t *testing.T) {
 		t.Errorf("third finding wrong: %v", r.Findings[2])
 	}
 }
+
+func TestReporterHeuristicWarningDeduplication(t *testing.T) {
+	r := NewReporter()
+	if r == nil {
+		t.Fatal("NewReporter returned nil")
+	}
+
+	d1 := Diagnostic{File: "f.go", Line: 10, Column: 2, Message: "heuristic warning"}
+	d1Dup := Diagnostic{File: "f.go", Line: 10, Column: 2, Message: "heuristic warning"}
+	d2 := Diagnostic{File: "f.go", Line: 20, Column: 3, Message: "heuristic warning"}
+
+	r.WarnHeuristic(d1)
+	r.WarnHeuristic(d1Dup) // exact duplicate should be suppressed
+	r.WarnHeuristic(d2)
+
+	if len(r.Warnings) != 2 {
+		t.Fatalf("expected 2 warnings after dedup, got %d: %v", len(r.Warnings), r.Warnings)
+	}
+
+	if len(r.Findings) != 0 {
+		t.Fatalf("expected no core findings, got %d", len(r.Findings))
+	}
+}
+
+func TestReporterIgnoreMissingAnnotations(t *testing.T) {
+	r := NewReporter()
+	r.IgnoreMissingAnnotations = true
+
+	r.WarnHeuristic(Diagnostic{File: "f.go", Line: 10, Column: 1, Message: "heuristic warning"})
+
+	if len(r.Warnings) != 0 {
+		t.Fatalf("expected warnings to be suppressed, got %d", len(r.Warnings))
+	}
+}

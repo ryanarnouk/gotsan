@@ -50,6 +50,9 @@ func functionDepthFirstSearch(
 
 	logger.Debugf("Function being analyzed: %s %v", fn.Name(), contract)
 
+	// Heuristic hints for likely missing lock annotations.
+	detectLikelyMissingLockAnnotations(fn, contract, reporter, fset)
+
 	// Detect lock-order inversions across goroutines launched in this function.
 	// This is always run in both lenient and strict modes.
 	detectGoroutineLockOrderInversions(fn, registry, reporter, fset)

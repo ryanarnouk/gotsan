@@ -23,6 +23,7 @@ func main() {
 	lenient := flag.Bool("l", false, "lenient mode: only detect deadlocks involving goroutines")
 	strict := flag.Bool("s", false, "strict mode: detect deadlocks in single-threaded code as well")
 	verbose := flag.Bool("v", false, "enable debug logs")
+	ignoreMissingAnnotations := flag.Bool("ignore-missing-annotations", false, "suppress heuristic missing annotation advisory warnings")
 	flag.Parse()
 
 	if *lenient && *strict {
@@ -80,6 +81,7 @@ func main() {
 	prog.Build()
 
 	reporter := report.NewReporter()
+	reporter.IgnoreMissingAnnotations = *ignoreMissingAnnotations
 
 	strictMode := *strict
 

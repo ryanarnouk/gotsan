@@ -1,0 +1,137 @@
+package heuristics
+
+import "sync"
+
+// A file with a lot of missing annotations to demonstrate that the
+// heuristics can explain where the annotations are missing.
+
+var (
+	globalMu  sync.Mutex
+	globalMu2 sync.Mutex
+)
+
+// @guarded_by(globalMu)
+var (
+	globalBalance int
+	globalCount   int
+)
+
+var globalFlag bool // @guarded_by(globalMu2)
+
+// Account represents a bank account.
+type Account struct {
+	mu  sync.Mutex
+	mu2 sync.Mutex
+
+	// @guarded_by(mu)
+	balance int
+
+	accountNumber int //@guarded_by(mu2)
+
+	// A warning of an annotation that does not work in this context
+	// @requires(mu)
+	badExample int
+}
+
+// depositUnsafe adds money to balance without acquiring a lock.
+func (a *Account) depositUnsafe(amount int) {
+	a.balance += amount
+}
+
+func (a *Account) helperFunction() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return 1
+}
+
+// Deposit safely adds money and releases the lock before returning.
+func (a *Account) Deposit(amount int) {
+	a.mu.Lock()         // acquires the lock
+	defer a.mu.Unlock() // releases on function exit
+
+	side_effect := func() {
+	}
+	side_effect()
+
+	a.depositUnsafe(amount)
+
+	// This function already has a lock, but the
+	// following function attempts to get the same lock
+	// should return an error that it's already being used
+	a.helperFunction()
+}
+
+// Deposit within an anonymous function that lets go of the lock prematurely and calls depositUnsafe
+func (a *Account) DepositAnonFunc(amount int) {
+	a.mu.Lock()         // acquires the lock
+	defer a.mu.Unlock() // releases on function exit
+
+	side_effect := func() {
+		a.mu.Unlock()
+		a.depositUnsafe(amount)
+	}
+
+	side_effect()
+}
+
+// DepositAndHold safely adds money and returns while keeping the lock held.
+func (a *Account) DepositAndHold(amount int) *Account {
+	a.mu.Lock() // acquires the lock
+	a.balance += amount
+	return a // lock is still held for caller
+}
+
+// Balance safely returns the account balance, releasing the lock before returning.
+func (a *Account) Balance() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.balance
+}
+
+// BadReadBalance demonstrates incorrect access to a guarded field.
+func (a *Account) BadReadBalance() int {
+	// Forgot to lock balance
+	return a.balance // should trigger @guarded_by warning
+}
+
+// BadCallDepositUnsafe demonstrates calling a @requires function without holding the lock.
+func (a *Account) BadCallDepositUnsafe(amount int) {
+	// Forgot to lock before calling depositUnsafe
+	a.depositUnsafe(amount) // should trigger @requires warning
+}
+
+func (a *Account) Withdraw(amount int) {
+	if a.balance < 0 {
+		return
+	} else {
+		a.balance -= amount
+	}
+}
+
+// An example of using an alias for the lock name and ensuring
+// that by using the SSA form, this can be tracked
+func (a *Account) WithdrawWithAliasingLock(amount int) {
+	alias := &a.mu
+	alias.Lock()
+
+	if a.balance < 0 {
+		return
+	} else {
+		a.balance -= amount
+	}
+}
+
+func (a *Account) doesNotAlwaysUnlock() {
+	a.mu.Lock()
+	if 1 < 2 {
+		a.mu.Unlock()
+	} else {
+		// Keep the lock, do nothing
+	}
+}
+
+func main() {
+	account := Account{}
+	account.depositUnsafe(10)
+}

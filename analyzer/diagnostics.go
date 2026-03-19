@@ -193,6 +193,44 @@ func reportUndeclaredReturnedLock(
 	})
 }
 
+func reportLikelyMissingAnnotation(
+	fn *ssa.Function,
+	pos token.Pos,
+	annotation string,
+	lockName string,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if fn == nil {
+		return
+	}
+
+	if pos == token.NoPos {
+		pos = fn.Pos()
+	}
+
+	if lockName == "" {
+		lockName = "<lock>"
+	}
+
+	message := "Heuristic: function " + fn.Name() + " manipulates lock " + lockName +
+		" and may be missing @" + annotation + "(" + lockName + ")"
+
+	if reporter == nil || fset == nil || pos == token.NoPos {
+		logger.Warnf(message)
+		return
+	}
+
+	position := fset.Position(pos)
+	reporter.WarnHeuristic(report.Diagnostic{
+		Pos:     pos,
+		File:    position.Filename,
+		Line:    position.Line,
+		Column:  position.Column,
+		Message: message,
+	})
+}
+
 func reportGoroutineLockOrderInversion(
 	goA *ssa.Go,
 	goB *ssa.Go,
