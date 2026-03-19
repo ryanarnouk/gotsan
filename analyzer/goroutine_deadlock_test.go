@@ -108,6 +108,41 @@ func TestFindOrderInversion(t *testing.T) {
 	}
 }
 
+func TestFirstRepeatedLock(t *testing.T) {
+	a := lockRef{Name: "a"}
+	b := lockRef{Name: "b"}
+
+	if _, ok := firstRepeatedLock([]lockRef{a, b}); ok {
+		t.Fatal("did not expect repeated lock")
+	}
+
+	repeated, ok := firstRepeatedLock([]lockRef{a, b, a})
+	if !ok {
+		t.Fatal("expected repeated lock")
+	}
+
+	if !sameLock(repeated, a) {
+		t.Fatalf("expected repeated lock a, got %v", repeated)
+	}
+}
+
+func TestContainsLock(t *testing.T) {
+	a := lockRef{Name: "a"}
+	b := lockRef{Name: "b"}
+	c := lockRef{Name: "c"}
+
+	order := []lockRef{a, b}
+	if !containsLock(order, a) {
+		t.Fatal("expected to find lock a")
+	}
+	if !containsLock(order, b) {
+		t.Fatal("expected to find lock b")
+	}
+	if containsLock(order, c) {
+		t.Fatal("did not expect to find lock c")
+	}
+}
+
 func TestAcquireOrderHelpers(t *testing.T) {
 	// nil inputs
 	if ord := acquireOrderForGoCall(nil, nil, nil); ord != nil {

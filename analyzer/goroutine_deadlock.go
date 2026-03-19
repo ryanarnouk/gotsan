@@ -26,6 +26,22 @@ type functionCallSite struct {
 	Order     []lockRef
 }
 
+func firstRepeatedLock(order []lockRef) (lockRef, bool) {
+	for i := 0; i < len(order); i++ {
+		for j := i + 1; j < len(order); j++ {
+			if sameLock(order[i], order[j]) {
+				return order[i], true
+			}
+		}
+	}
+
+	return lockRef{}, false
+}
+
+func containsLock(order []lockRef, lock lockRef) bool {
+	return indexOfLock(order, lock) != -1
+}
+
 func lockDisplayName(l lockRef) string {
 	if l.Obj != nil {
 		return l.Obj.Name()
@@ -152,7 +168,7 @@ func collectTransitiveAcquireOrder(
 		acquires := contract.Expectations[ir.Acquires]
 		for _, req := range acquires {
 			obj := resolveObjectAtInvocation(callee, invocationArgs, req.Target)
-			order = appendLockIfMissing(order, lockRef{Obj: obj, Name: req.Target})
+			order = append(order, lockRef{Obj: obj, Name: req.Target})
 		}
 	}
 
@@ -169,9 +185,7 @@ func collectTransitiveAcquireOrder(
 			}
 
 			nestedOrder := collectTransitiveAcquireOrder(nestedCallee, callInstr.Call.Args, registry, active)
-			for _, lock := range nestedOrder {
-				order = appendLockIfMissing(order, lock)
-			}
+			order = append(order, nestedOrder...)
 		}
 	}
 
@@ -228,7 +242,7 @@ func detectGoroutineLockOrderInversions(
 			}
 
 			order := acquireOrderForGoSite(goInstr, registry)
-			if len(order) < 2 {
+			if len(order) == 0 {
 				continue
 			}
 
@@ -242,6 +256,32 @@ func detectGoroutineLockOrderInversions(
 
 	for i := 0; i < len(sites); i++ {
 		for j := i + 1; j < len(sites); j++ {
+			repeatedLockA, repeatedA := firstRepeatedLock(sites[i].Order)
+			if repeatedA && containsLock(sites[j].Order, repeatedLockA) {
+				reportGoroutineRecursiveLockPotentialDeadlock(
+					sites[i].GoInstr,
+					sites[j].GoInstr,
+					sites[i].Callee,
+					sites[j].Callee,
+					lockDisplayName(repeatedLockA),
+					reporter,
+					fset,
+				)
+			}
+
+			repeatedLockB, repeatedB := firstRepeatedLock(sites[j].Order)
+			if repeatedB && containsLock(sites[i].Order, repeatedLockB) {
+				reportGoroutineRecursiveLockPotentialDeadlock(
+					sites[j].GoInstr,
+					sites[i].GoInstr,
+					sites[j].Callee,
+					sites[i].Callee,
+					lockDisplayName(repeatedLockB),
+					reporter,
+					fset,
+				)
+			}
+
 			firstLock, secondLock, found := findOrderInversion(sites[i].Order, sites[j].Order)
 			if !found {
 				continue
