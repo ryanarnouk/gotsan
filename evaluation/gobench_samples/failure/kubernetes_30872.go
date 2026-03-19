@@ -1,4 +1,4 @@
-package kubernetes30872
+package gobench_samples
 
 import (
 	"sync"
@@ -9,7 +9,7 @@ type PopProcessFunc func()
 
 type ProcessFunc func()
 
-func Util(f func(), stopCh <-chan struct{}) {
+func Util30872(f func(), stopCh <-chan struct{}) {
 	JitterUntil(f, stopCh)
 }
 
@@ -41,7 +41,7 @@ type Controller struct {
 }
 
 func (c *Controller) Run(stopCh <-chan struct{}) {
-	Util(c.processLoop, stopCh)
+	Util30872(c.processLoop, stopCh)
 }
 
 func (c *Controller) HasSynced() {

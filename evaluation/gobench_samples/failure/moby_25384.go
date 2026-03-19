@@ -10,7 +10,7 @@
  * group.Wait() is invoked, it waits for group.Done() to be executed n times.
  * However, group.Done() is only executed once in one iteration.
  */
-package moby25384
+package gobench_samples
 
 import (
 	"sync"

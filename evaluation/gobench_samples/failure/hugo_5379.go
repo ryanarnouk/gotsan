@@ -1,4 +1,4 @@
-package hugo5379
+package gobench_samples
 
 import (
 	"context"

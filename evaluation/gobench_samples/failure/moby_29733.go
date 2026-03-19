@@ -1,4 +1,4 @@
-package moby29733
+package gobench_samples
 
 import (
 	"sync"

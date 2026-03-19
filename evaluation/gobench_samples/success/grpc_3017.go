@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-type Address int
+type Address3017 int
 type SubConn int
 
 type subConnCacheEntry struct {
@@ -26,12 +26,12 @@ type subConnCacheEntry struct {
 type lbCacheClientConn struct {
 	mu            sync.Mutex
 	timeout       time.Duration
-	subConnCache  map[Address]*subConnCacheEntry
-	subConnToAddr map[SubConn]Address
+	subConnCache  map[Address3017]*subConnCacheEntry
+	subConnToAddr map[SubConn]Address3017
 }
 
 // @acquires(ccc.mu)
-func (ccc *lbCacheClientConn) NewSubConn(addrs []Address) SubConn {
+func (ccc *lbCacheClientConn) NewSubConn(addrs []Address3017) SubConn {
 	if len(addrs) != 1 {
 		return SubConn(1)
 	}
@@ -90,15 +90,15 @@ func TestGrpc3017(t *testing.T) {
 
 	ccc := &lbCacheClientConn{
 		timeout:       time.Nanosecond,
-		subConnCache:  make(map[Address]*subConnCacheEntry),
-		subConnToAddr: make(map[SubConn]Address),
+		subConnCache:  make(map[Address3017]*subConnCacheEntry),
+		subConnToAddr: make(map[SubConn]Address3017),
 	}
 
-	sc := ccc.NewSubConn([]Address{Address(1)})
+	sc := ccc.NewSubConn([]Address3017{Address3017(1)})
 	go func() {
 		for i := 0; i < 1000; i++ {
 			ccc.RemoveSubConn(sc)
-			sc = ccc.NewSubConn([]Address{Address(1)})
+			sc = ccc.NewSubConn([]Address3017{Address3017(1)})
 		}
 		close(done)
 	}()

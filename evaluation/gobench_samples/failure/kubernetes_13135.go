@@ -5,7 +5,7 @@
  * fix commit-id: a12b7edc42c5c06a2e7d9f381975658692951d5a
  * Flaky: 93/100
  */
-package kubernetes13135
+package gobench_samples
 
 import (
 	"sync"

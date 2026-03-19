@@ -1,4 +1,4 @@
-package hugo3251
+package gobench_samples
 
 import (
 	"fmt"

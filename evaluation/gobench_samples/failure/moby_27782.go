@@ -5,7 +5,7 @@
  * fix commit-id: a69a59ffc7e3d028a72d1195c2c1535f447eaa84
  * Flaky: 2/100
  */
-package moby27782
+package gobench_samples
 
 import (
 	"errors"
