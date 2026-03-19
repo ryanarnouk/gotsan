@@ -1,120 +1,43 @@
 /*
- * Project: moby (Docker)
- * Issue or PR  : https://github.com/moby/moby/issues/25384
- * Buggy version: Before 5de2e6d7b8494e662a7b53c287dad25bc6139747
- * fix commit-id: 5de2e6d7b8494e662a7b53c287dad25bc6139747
- * Flaky: Yes (timing-dependent with multiple plugins)
- * Description: Deadlock when loading multiple plugins. The plugin loading
- * mechanism uses a WaitGroup to wait for all plugins to load, but the
- * Done() count doesn't match the initial Add() count, causing the Wait()
- * to hang forever when multiple plugins are installed.
+ * Project: moby
+ * Issue or PR  : https://github.com/moby/moby/pull/25384
+ * Buggy version: 58befe3081726ef74ea09198cd9488fb42c51f51
+ * fix commit-id: 42360d164b9f25fb4b150ef066fcf57fa39559a7
+ * Flaky: 100/100
+ * Description:
+ *   When n=1 (len(pm.plugins)), the location of group.Wait() doesn’t matter.
+ * When n is larger than 1, group.Wait() is invoked in each iteration. Whenever
+ * group.Wait() is invoked, it waits for group.Done() to be executed n times.
+ * However, group.Done() is only executed once in one iteration.
  */
-package gobench_samples
+package moby25384
 
 import (
 	"sync"
 	"testing"
-	"time"
 )
 
-type PluginManager struct {
-	mu sync.Mutex
-	// @guarded_by(mu)
-	loadWaiters *sync.WaitGroup
+type plugin struct{}
+
+type Manager struct {
+	plugins []*plugin
 }
 
-// BUG: This function adds to the WaitGroup for each plugin
-// but might not call Done() for all of them, causing Wait() to hang.
-//
-// @acquires(pm.mu)
-func (pm *PluginManager) loadPlugin(id int, shouldFail bool) {
-	pm.mu.Lock()
-	wg := pm.loadWaiters
-	pm.mu.Unlock()
-
-	if shouldFail {
-		// BUG: Early return without calling Done() on the WaitGroup
-		// This leaves the count incremented, so Wait() will never complete
-		return
-	}
-
-	// Do some work...
-	time.Sleep(10 * time.Millisecond)
-
-	// Only reached on success
-	wg.Done()
-}
-
-// BUG: Waits for all plugins to finish loading
-// If any plugin fails and returns early without Done(),
-// this will wait forever.
-//
-// @acquires(pm.mu)
-func (pm *PluginManager) waitForPlugins(timeout time.Duration) error {
-	pm.mu.Lock()
-	wg := pm.loadWaiters
-	pm.mu.Unlock()
-
-	// Create a done channel to handle timeout
-	done := make(chan struct{})
-	go func() {
-		wg.Wait() // Waits for all Done() calls to match Add() calls
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		return nil
-	case <-time.After(timeout):
-		return ErrPluginLoadTimeout
+func (pm *Manager) init() {
+	var group sync.WaitGroup
+	group.Add(len(pm.plugins))
+	for _, p := range pm.plugins {
+		go func(p *plugin) {
+			defer group.Done()
+		}(p)
+		group.Wait() // Block here
 	}
 }
-
-type LoadError struct{}
-
-func (e *LoadError) Error() string {
-	return "plugin load failed"
-}
-
-var ErrPluginLoadTimeout = &LoadError{}
-
 func TestMoby25384(t *testing.T) {
-	pm := &PluginManager{}
-
-	pm.mu.Lock()
-	pm.loadWaiters = &sync.WaitGroup{}
-	pm.mu.Unlock()
-
-	// Load 3 plugins, but one will fail
-	plugins := []int{1, 2, 3}
-
-	pm.mu.Lock()
-	pm.loadWaiters.Add(len(plugins))
-	pm.mu.Unlock()
-
-	// Load plugins in parallel
-	for _, id := range plugins {
-		go func(pluginID int) {
-			// Plugin 2 will fail
-			shouldFail := pluginID == 2
-			pm.loadPlugin(pluginID, shouldFail)
-		}(id)
+	p1 := &plugin{}
+	p2 := &plugin{}
+	pm := &Manager{
+		plugins: []*plugin{p1, p2},
 	}
-
-	// Try to wait for all plugins to load
-	// BUG: This will deadlock because plugin 2 returned without Done()
-	select {
-	case <-time.After(500 * time.Millisecond):
-		// BUG: Deadlock - WaitGroup.Wait() never returns
-		// because not all Done() calls were made
-	default:
-		t.Fatal("expected timeout from deadlock")
-	}
-
-	// Only 2 out of 3 plugins called Done()
-	// So Wait() will hang forever waiting for the third
-	err := pm.waitForPlugins(100 * time.Millisecond)
-	if err != ErrPluginLoadTimeout {
-		t.Fatalf("expected timeout, got %v", err)
-	}
+	go pm.init()
 }

@@ -33,18 +33,18 @@ Use this table to record:
 | etcd | 6708 | Write lock followed by nested read lock | `[ ]` | `[ ]` |  |  |
 | grpc | 3017 | Early return without unlocking in timer callback | `[ ]` | `[ ]` |  |  |
 | grpc | 795 | Double-lock or missing unlock in `GracefulStop()` | `[x]` | `[ ]` |  |  |
-| hugo | 3251 | Write lock blocks later `RLock()` path | `[ ]` | `[ ]` |  |  |
-| hugo | 5379 | `sync.Once` closure re-acquires same mutex | `[ ]` | `[ ]` |  |  |
-| kubernetes | 13135 | Re-lock after callback chain from `startCaching()` | `[ ]` | `[ ]` |  |  |
-| kubernetes | 30872 | AB/BA deadlock between `DeltaFIFO.lock` and `federatedInformerImpl.Lock()` | `[ ]` | `[ ]` |  |  |
-| kubernetes | 58107 | `RLock()` held while blocked in `cond.Wait()` | `[ ]` | `[ ]` |  |  |
-| kubernetes | 62464 | Recursive `RLock` with pending writer | `[ ]` | `[ ]` |  |  |
+| hugo | 3251 | Write lock blocks later `RLock()` path | `[X]` | `[X]` |  |  |
+| hugo | 5379 | `sync.Once` closure re-acquires same mutex | `[X]` | `[ ]` |  |  |
+| kubernetes | 13135 | Re-lock after callback chain from `startCaching()` | `[X]` | `[ ]` |  | Not sure |
+| kubernetes | 30872 | AB/BA deadlock between `DeltaFIFO.lock` and `federatedInformerImpl.Lock()` | `[X]` | `[ ]` |  | heuristic is not happy |
+| kubernetes | 58107 | `RLock()` held while blocked in `cond.Wait()` | `[X]` | `[X]` |  | heuristic complains but it seems to work |
+| kubernetes | 62464 | Recursive `RLock` with pending writer | `[X]` | `[X]` |  |  |
 | moby | 17176 | Early return without releasing `devices.Lock()` | `[X]` | `[ ]` |  | This one I'm not as sure about|
 | moby | 25384 | `WaitGroup` never fully decremented | `[X]` | `[-]` |  |  |
 | moby | 27782 | `sync.Cond` wait never signaled for write events | `[X]` | `[-]` |  |  |
 | moby | 29733 | `sync.Cond` wait with no state update or broadcast | `[X]` | `[-]` |  |  |
 | moby | 30408 | `sync.Cond` wait with no manifest and no broadcast | `[X]` | `[-]` |  | Condition variable deadlock - fields properly guarded but logic error not detected |
-| moby | 36114 | Recursive mutex acquisition across helper call | `[X]` | `[X]` |  |  |
+| moby | 36114 | Recursive mutex acquisition across helper call | `[X]` | `[]` |  |  |
 | moby | 4951 | AB/BA deadlock between `devices.Lock()` and `info.lock` | `[X]` | `[ ]` |  |  |
 | moby | 7559 | Error path continues without releasing lock | `[X]` | `[ ]` |  |  |
 | syncthing | 4829 | Write lock calls helper that takes read lock | `[X]` | `[X]` |  |  |

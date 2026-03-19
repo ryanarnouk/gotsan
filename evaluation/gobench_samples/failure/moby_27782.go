@@ -1,224 +1,253 @@
 /*
- * Project: moby (Docker)
- * Issue or PR  : https://github.com/moby/moby/issues/27782
- * Buggy version: Before 1f8e41bcaa1fb8f8a5caf44a7e3cf08eed1c85f5
- * fix commit-id: 1f8e41bcaa1fb8f8a5caf44a7e3cf08eed1c85f5
- * Flaky: Timing-dependent on concurrent read/write events
- * Description: Deadlock in storage driver event handling. A condition variable
- * is used to coordinate event notifications, but certain code paths update state
- * without broadcasting the condition. Waiters on that condition will block
- * indefinitely if their signaling event never occurs or broadcast is missing.
+ * Project: moby
+ * Issue or PR  : https://github.com/moby/moby/pull/27782
+ * Buggy version: 18768fdc2e76ec6c600c8ab57d2d487ee7877794
+ * fix commit-id: a69a59ffc7e3d028a72d1195c2c1535f447eaa84
+ * Flaky: 2/100
  */
-package gobench_samples
+package moby27782
 
 import (
+	"errors"
 	"sync"
 	"testing"
 	"time"
 )
 
-type StorageEvent struct {
-	EventType string
-	DeviceID  string
+type Event struct {
+	Op Op
 }
 
-type StorageDriver struct {
-	mu        sync.Mutex
-	eventWait *sync.Cond
-	// @guarded_by(mu)
-	pendingEvents []StorageEvent
-	// @guarded_by(mu)
-	lastEventType string
+type Op uint32
+
+const (
+	Create Op = 1 << iota
+	Write
+	Remove
+	Rename
+	Chmod
+)
+
+func newEvent(op Op) Event {
+	return Event{op}
 }
 
-// BUG: This function marks a write event as completed and should notify
-// waiters, but might not broadcast in all cases. If a waiter is blocked
-// waiting for write event completion, they'll wait forever.
-//
-// @acquires(sd.mu)
-func (sd *StorageDriver) completeWriteEvent(deviceID string) {
-	sd.mu.Lock()
-
-	// Process the write event
-	sd.lastEventType = "write_complete"
-
-	// BUG: This only broadcasts if there are pending events
-	// But if there are no pending events, waiters waiting for write completion
-	// will continue waiting despite the event being done
-	if len(sd.pendingEvents) > 0 {
-		sd.eventWait.Broadcast() // Only broadcasts if events are pending
+// @acquires(w.mu)
+func (e *Event) ignoreLinux(w *Watcher) bool {
+	if e.Op != Write {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		w.cv.Broadcast()
+		return true
 	}
-	// BUG: Missing else case or unconditional broadcast
-
-	sd.mu.Unlock()
+	return false
 }
 
-// This function waits for write events to be processed.
-// If completeWriteEvent() doesn't broadcast when it should,
-// this will block forever.
-//
-// @acquires(sd.mu)
-func (sd *StorageDriver) waitForWriteCompletion(timeout time.Duration) error {
-	sd.mu.Lock()
+type Watcher struct {
+	Events chan Event
+	mu     sync.Mutex
+	// @guarded_by(mu)
+	cv *sync.Cond
+	// @guarded_by(mu)
+	done chan struct{}
+}
 
-	// Wait for write event to complete
-	for sd.lastEventType != "write_complete" {
-		// Create a channel for timeout
-		done := make(chan struct{})
-		go func() {
-			sd.eventWait.Wait()
-			close(done)
-		}()
+func NewWatcher() *Watcher {
+	w := &Watcher{
+		Events: make(chan Event),
+		done:   make(chan struct{}),
+	}
+	w.cv = sync.NewCond(&w.mu)
+	go w.readEvents() // G3
+	return w
+}
 
-		sd.mu.Unlock()
-
-		select {
-		case <-done:
-			// Event was signaled, re-acquire lock
-			sd.mu.Lock()
-		case <-time.After(timeout):
-			// Timeout waiting for event
-			return ErrEventTimeout
+func (w *Watcher) readEvents() {
+	defer close(w.Events)
+	for {
+		if w.isClosed() {
+			return
+		}
+		event := newEvent(Write) // MODIFY event
+		if !event.ignoreLinux(w) {
+			time.Sleep(300 * time.Nanosecond)
+			select {
+			case w.Events <- event:
+			case <-w.done:
+				return
+			}
 		}
 	}
-
-	sd.mu.Unlock()
-	return nil
 }
 
-// Similar to completeWriteEvent but for read events
-// BUG: Same pattern - might not broadcast if pending events list is empty
-//
-// @acquires(sd.mu)
-func (sd *StorageDriver) completeReadEvent(deviceID string) {
-	sd.mu.Lock()
-
-	sd.lastEventType = "read_complete"
-
-	// BUG: Only broadcasts if pending events - missing broadcast for empty list
-	if len(sd.pendingEvents) > 0 {
-		sd.eventWait.Broadcast()
+func (w *Watcher) isClosed() bool {
+	select {
+	case <-w.done:
+		return true
+	default:
+		return false
 	}
-
-	sd.mu.Unlock()
 }
 
-type EventError struct{}
-
-func (e *EventError) Error() string {
-	return "event timeout"
+func (w *Watcher) Close() {
+	if w.isClosed() {
+		return
+	}
+	close(w.done)
 }
 
-var ErrEventTimeout = &EventError{}
+// @acquires(w.mu)
+func (w *Watcher) Remove() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	exists := true
+	for exists {
+		w.cv.Wait()
+	}
+}
+
+type FileWatcher interface {
+	Events() <-chan Event
+	Remove()
+	Close()
+}
+
+func New() FileWatcher {
+	return NewEventWatcher()
+}
+
+func NewEventWatcher() FileWatcher {
+	return &fsNotifyWatcher{NewWatcher()}
+}
+
+type fsNotifyWatcher struct {
+	*Watcher
+}
+
+func (w *fsNotifyWatcher) Events() <-chan Event {
+	return w.Watcher.Events
+}
+
+func watchFile() FileWatcher {
+	fileWatcher := New()
+	return fileWatcher
+}
+
+type LogWatcher struct {
+	closeOnce     sync.Once
+	closeNotifier chan struct{}
+}
+
+func (w *LogWatcher) Close() {
+	w.closeOnce.Do(func() {
+		close(w.closeNotifier)
+	})
+}
+
+func (w *LogWatcher) WatchClose() <-chan struct{} {
+	return w.closeNotifier
+}
+
+func NewLogWatcher() *LogWatcher {
+	return &LogWatcher{
+		closeNotifier: make(chan struct{}),
+	}
+}
+
+func followLogs(logWatcher *LogWatcher) {
+	fileWatcher := watchFile()
+	defer func() {
+		fileWatcher.Close()
+	}()
+	waitRead := func() {
+		time.Sleep(300 * time.Nanosecond)
+		select {
+		case <-fileWatcher.Events():
+		case <-logWatcher.WatchClose():
+			fileWatcher.Remove()
+			return
+		}
+	}
+	handleDecodeErr := func() {
+		waitRead()
+	}
+	handleDecodeErr()
+}
+
+type Container struct {
+	LogDriver *JSONFileLogger
+}
+
+func (container *Container) InitializeStdio() {
+	if err := container.startLogging(); err != nil {
+		container.Reset()
+	}
+}
+
+func (container *Container) startLogging() error {
+	l := &JSONFileLogger{
+		readers: make(map[*LogWatcher]struct{}),
+	}
+	container.LogDriver = l
+	l.ReadLogs()
+	return errors.New("Some error")
+}
+
+func (container *Container) Reset() {
+	if container.LogDriver != nil {
+		container.LogDriver.Close()
+	}
+}
+
+type JSONFileLogger struct {
+	readers map[*LogWatcher]struct{}
+}
+
+func (l *JSONFileLogger) ReadLogs() *LogWatcher {
+	logWatcher := NewLogWatcher()
+	go l.readLogs(logWatcher)
+	return logWatcher
+}
+
+func (l *JSONFileLogger) readLogs(logWatcher *LogWatcher) {
+	l.readers[logWatcher] = struct{}{}
+	followLogs(logWatcher)
+}
+
+func (l *JSONFileLogger) Close() {
+	for r := range l.readers {
+		r.Close()
+		delete(l.readers, r)
+	}
+}
+
+///
+/// G1 						G2							G3
+/// InitializeStdio()
+/// startLogging()
+/// l.ReadLogs()
+/// NewLogWatcher()
+/// 						l.readLogs()
+/// container.Reset()
+/// LogDriver.Close()
+/// r.Close()
+/// close(w.closeNotifier)
+/// 						followLogs(logWatcher)
+/// 						watchFile()
+/// 						New()
+/// 						NewEventWatcher()
+/// 						NewWatcher()
+/// 													w.readEvents()
+/// 													event.ignoreLinux()
+/// 													return false
+/// 						<-logWatcher.WatchClose()
+/// 						fileWatcher.Remove()
+/// 						w.cv.Wait()
+/// 													w.Events <- event
+/// ------------------------------G2,G3 deadlock---------------------------
+///
 
 func TestMoby27782(t *testing.T) {
-	sd := &StorageDriver{
-		pendingEvents: make([]StorageEvent, 0),
-		eventWait:     nil,
-	}
-
-	// Initialize under lock
-	sd.mu.Lock()
-	sd.eventWait = sync.NewCond(&sd.mu)
-	sd.lastEventType = "none"
-	sd.mu.Unlock()
-
-	// Scenario 1: No pending events, but someone is waiting for completion
-	// Thread A: Start waiting for write completion
-	waitDone := make(chan error, 1)
-	go func() {
-		waitDone <- sd.waitForWriteCompletion(100 * time.Millisecond)
-	}()
-
-	time.Sleep(20 * time.Millisecond)
-
-	// Thread B: Process a write event
-	// The pending events list is empty, so completeWriteEvent won't broadcast
-	go func() {
-		sd.completeWriteEvent("device1")
-	}()
-
-	// Check if waiter unblocks
-	// BUG: Deadlock - the waiter is waiting for write_complete but
-	// completeWriteEvent didn't broadcast because pendingEvents was empty
-	select {
-	case err := <-waitDone:
-		if err == ErrEventTimeout {
-			// Expected: timeout because event wasn't signaled
-			t.Logf("waiter timed out as expected due to missing broadcast")
-		}
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("deadlock: waitForWriteCompletion never returned")
-	}
-
-	// Scenario 2: Multiple operations waiting for completion
-	sd.mu.Lock()
-	sd.lastEventType = "none"
-	sd.mu.Unlock()
-
-	// Thread C: Multiple waiters for read completion
-	readWait1 := make(chan error, 1)
-	readWait2 := make(chan error, 1)
-
-	go func() {
-		sd.mu.Lock()
-		for sd.lastEventType != "read_complete" {
-			done := make(chan struct{})
-			go func() {
-				sd.eventWait.Wait()
-				close(done)
-			}()
-			sd.mu.Unlock()
-
-			select {
-			case <-done:
-				sd.mu.Lock()
-			case <-time.After(100 * time.Millisecond):
-				readWait1 <- ErrEventTimeout
-				return
-			}
-		}
-		sd.mu.Unlock()
-		readWait1 <- nil
-	}()
-
-	go func() {
-		sd.mu.Lock()
-		for sd.lastEventType != "read_complete" {
-			done := make(chan struct{})
-			go func() {
-				sd.eventWait.Wait()
-				close(done)
-			}()
-			sd.mu.Unlock()
-
-			select {
-			case <-done:
-				sd.mu.Lock()
-			case <-time.After(100 * time.Millisecond):
-				readWait2 <- ErrEventTimeout
-				return
-			}
-		}
-		sd.mu.Unlock()
-		readWait2 <- nil
-	}()
-
-	time.Sleep(20 * time.Millisecond)
-
-	// Thread D: Complete read event with no pending events
-	// BUG: Won't broadcast, so both waiters will timeout
-	sd.completeReadEvent("device2")
-
-	select {
-	case <-readWait1:
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("deadlock: read waiter 1 never returned")
-	}
-
-	select {
-	case <-readWait2:
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("deadlock: read waiter 2 never returned")
-	}
+	c := &Container{}
+	go c.InitializeStdio() // G1
 }

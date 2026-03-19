@@ -1,14 +1,11 @@
 /*
  * Project: kubernetes
  * Issue or PR  : https://github.com/kubernetes/kubernetes/pull/13135
- * Buggy version: Before fix
- * fix commit-id: 9f1d2af5fb59e2797d4f5b859d45504e1e9dae4e
- * Flaky: Yes (depends on watch callback timing)
- * Description: Deadlock in Cacher watchCache on etcd errors. StartCaching() holds
- * lock while delivering event to watchers via callbacks. Callbacks try to re-acquire
- * the same lock, causing deadlock when stopping/restarting the cache.
+ * Buggy version: 6ced66249d4fd2a81e86b4a71d8df0139fe5ceae
+ * fix commit-id: a12b7edc42c5c06a2e7d9f381975658692951d5a
+ * Flaky: 93/100
  */
-package gobench_samples
+package kubernetes13135
 
 import (
 	"sync"
@@ -16,82 +13,169 @@ import (
 	"time"
 )
 
+var (
+	StopChannel chan struct{}
+)
+
+func Util(f func(), period time.Duration, stopCh <-chan struct{}) {
+	for {
+		select {
+		case <-stopCh:
+			return
+		default:
+		}
+		func() {
+			f()
+		}()
+		time.Sleep(period)
+	}
+}
+
+type Store interface {
+	Add(obj interface{})
+	Replace(obj interface{})
+}
+
+type Reflector struct {
+	store Store
+}
+
+func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
+	r.syncWith()
+	return nil
+}
+
+func NewReflector(store Store) *Reflector {
+	return &Reflector{
+		store: store,
+	}
+}
+
+func (r *Reflector) syncWith() {
+	r.store.Replace(nil)
+}
+
 type Cacher struct {
-	mu sync.RWMutex
-	// @guarded_by(mu)
-	caching bool
-	// @guarded_by(mu)
-	watchCallbacks []func()
+	sync.Mutex
+	// @guarded_by(sync.Mutex)
+	initialized sync.WaitGroup
+	// @guarded_by(sync.Mutex)
+	initOnce sync.Once
+	// @guarded_by(sync.Mutex)
+	watchCache *WatchCache
+	// @guarded_by(sync.Mutex)
+	reflector *Reflector
 }
 
-// @acquires(c.mu)
-// @returns(c.mu)
-func (c *Cacher) StartCaching() {
-	c.mu.Lock()
+// @acquires(c.Mutex)
+func (c *Cacher) processEvent() {
+	c.Lock()
+	defer c.Unlock()
+}
 
-	if c.caching {
-		c.mu.Unlock()
-		return
+// @acquires(c.Mutex)
+func (c *Cacher) startCaching(stopChannel <-chan struct{}) {
+	c.Lock()
+	for {
+		err := c.reflector.ListAndWatch(stopChannel)
+		if err == nil {
+			break
+		}
 	}
+}
 
-	c.caching = true
+type WatchCache struct {
+	sync.RWMutex
+	//guarded_by(sync.RWMutex)
+	onReplace func()
+	//guarded_by(sync.RWMutex)
+	onEvent func()
+}
 
-	for _, callback := range c.watchCallbacks {
-		callback()
+// @acquires(w.RWMutex)
+func (w *WatchCache) SetOnEvent(onEvent func()) {
+	w.Lock()
+	defer w.Unlock()
+	w.onEvent = onEvent
+}
+
+// @acquires(w.RWMutex)
+func (w *WatchCache) SetOnReplace(onReplace func()) {
+	w.Lock()
+	defer w.Unlock()
+	w.onReplace = onReplace
+}
+
+// @acquires(w.RWMutex)
+func (w *WatchCache) processEvent() {
+	w.Lock()
+	defer w.Unlock()
+	if w.onEvent != nil {
+		w.onEvent()
 	}
-
-	c.mu.Unlock()
 }
 
-// @acquires(c.mu)
-func (c *Cacher) onCachingStarted() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.caching = false
+func (w *WatchCache) Add(obj interface{}) {
+	w.processEvent()
 }
 
-// @acquires(c.mu)
-func (c *Cacher) WaitForSync() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	return c.caching
+// @acquires(w.RWMutex)
+func (w *WatchCache) Replace(obj interface{}) {
+	w.Lock()
+	defer w.Unlock()
+	if w.onReplace != nil {
+		w.onReplace()
+	}
 }
 
+// @requires(w.RWMutex)
+func NewCacher() *Cacher {
+	watchCache := &WatchCache{}
+	cacher := &Cacher{
+		initialized: sync.WaitGroup{},
+		watchCache:  watchCache,
+		reflector:   NewReflector(watchCache),
+	}
+	cacher.initialized.Add(1)
+	watchCache.SetOnReplace(func() {
+		cacher.initOnce.Do(func() { cacher.initialized.Done() })
+		cacher.Unlock()
+	})
+	watchCache.SetOnEvent(cacher.processEvent)
+	stopCh := StopChannel
+	go Util(func() { cacher.startCaching(stopCh) }, 0, stopCh) // G2
+	cacher.initialized.Wait()
+	return cacher
+}
+
+// /
+// / G1								G2								G3
+// / NewCacher()
+// / watchCache.SetOnReplace()
+// / watchCache.SetOnEvent()
+// / 								cacher.startCaching()
+// /									c.Lock()
+// / 								c.reflector.ListAndWatch()
+// / 								r.syncWith()
+// / 								r.store.Replace()
+// / 								w.Lock()
+// / 								w.onReplace()
+// / 								cacher.initOnce.Do()
+// / 								cacher.Unlock()
+// / return cacher
+// /																	c.watchCache.Add()
+// /																	w.processEvent()
+// /																	w.Lock()
+// /									cacher.startCaching()
+// /									c.Lock()
+// /									...
+// /																	c.Lock()
+// /									w.Lock()
+// /--------------------------------G2,G3 deadlock-------------------------------------
+// /
 func TestKubernetes13135(t *testing.T) {
-	c := &Cacher{
-		caching:        false,
-		watchCallbacks: make([]func(), 0),
-	}
-
-	// Register callback that tries to re-acquire lock
-	c.watchCallbacks = append(c.watchCallbacks, c.onCachingStarted)
-
-	// Thread A: StartCaching (holds lock, calls callbacks)
-	startDone := make(chan struct{}, 1)
-	go func() {
-		c.StartCaching()
-		startDone <- struct{}{}
-	}()
-
-	time.Sleep(10 * time.Millisecond)
-
-	// Thread B: Try to wait for sync
-	waitDone := make(chan bool, 1)
-	go func() {
-		waitDone <- c.WaitForSync()
-	}()
-
-	select {
-	case <-startDone:
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("deadlock: StartCaching blocked (callback re-acquires lock)")
-	}
-
-	select {
-	case <-waitDone:
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("deadlock: WaitForSync blocked waiting for StartCaching to release lock")
-	}
+	StopChannel = make(chan struct{})
+	c := NewCacher()         // G1
+	go c.watchCache.Add(nil) // G3
+	go close(StopChannel)
 }
