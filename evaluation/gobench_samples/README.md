@@ -39,10 +39,10 @@ Use this table to record:
 | kubernetes | 30872 | AB/BA deadlock between `DeltaFIFO.lock` and `federatedInformerImpl.Lock()` | `[ ]` | `[ ]` |  |  |
 | kubernetes | 58107 | `RLock()` held while blocked in `cond.Wait()` | `[ ]` | `[ ]` |  |  |
 | kubernetes | 62464 | Recursive `RLock` with pending writer | `[ ]` | `[ ]` |  |  |
-| moby | 17176 | Early return without releasing `devices.Lock()` | `[ ]` | `[ ]` |  |  |
-| moby | 25384 | `WaitGroup` never fully decremented | `[ ]` | `[ ]` |  |  |
-| moby | 27782 | `sync.Cond` wait never signaled for write events | `[ ]` | `[ ]` |  |  |
-| moby | 29733 | `sync.Cond` wait with no state update or broadcast | `[ ]` | `[ ]` |  |  |
+| moby | 17176 | Early return without releasing `devices.Lock()` | `[X]` | `[ ]` |  | This one I'm not as sure about|
+| moby | 25384 | `WaitGroup` never fully decremented | `[X]` | `[-]` |  |  |
+| moby | 27782 | `sync.Cond` wait never signaled for write events | `[X]` | `[-]` |  |  |
+| moby | 29733 | `sync.Cond` wait with no state update or broadcast | `[X]` | `[-]` |  |  |
 | moby | 30408 | `sync.Cond` wait with no manifest and no broadcast | `[X]` | `[-]` |  | Condition variable deadlock - fields properly guarded but logic error not detected |
 | moby | 36114 | Recursive mutex acquisition across helper call | `[X]` | `[X]` |  |  |
 | moby | 4951 | AB/BA deadlock between `devices.Lock()` and `info.lock` | `[X]` | `[ ]` |  |  |
