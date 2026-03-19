@@ -43,11 +43,11 @@ Use this table to record:
 | moby | 25384 | `WaitGroup` never fully decremented | `[ ]` | `[ ]` |  |  |
 | moby | 27782 | `sync.Cond` wait never signaled for write events | `[ ]` | `[ ]` |  |  |
 | moby | 29733 | `sync.Cond` wait with no state update or broadcast | `[ ]` | `[ ]` |  |  |
-| moby | 30408 | `sync.Cond` wait with no manifest and no broadcast | `[ ]` | `[ ]` |  |  |
-| moby | 36114 | Recursive mutex acquisition across helper call | `[ ]` | `[ ]` |  |  |
-| moby | 4951 | AB/BA deadlock between `devices.Lock()` and `info.lock` | `[ ]` | `[ ]` |  |  |
-| moby | 7559 | Error path continues without releasing lock | `[ ]` | `[ ]` |  |  |
-| syncthing | 4829 | Write lock calls helper that takes read lock | `[ ]` | `[ ]` |  |  |
+| moby | 30408 | `sync.Cond` wait with no manifest and no broadcast | `[X]` | `[-]` |  | Condition variable deadlock - fields properly guarded but logic error not detected |
+| moby | 36114 | Recursive mutex acquisition across helper call | `[X]` | `[X]` |  |  |
+| moby | 4951 | AB/BA deadlock between `devices.Lock()` and `info.lock` | `[X]` | `[ ]` |  |  |
+| moby | 7559 | Error path continues without releasing lock | `[X]` | `[ ]` |  |  |
+| syncthing | 4829 | Write lock calls helper that takes read lock | `[X]` | `[X]` |  |  |
 
 Summary: 28 pure shared-memory blocking bugs. These are the strongest candidates for annotation-based evaluation.
 
