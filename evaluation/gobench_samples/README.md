@@ -39,15 +39,15 @@ Use this table to record:
 | kubernetes | 30872 | AB/BA deadlock between `DeltaFIFO.lock` and `federatedInformerImpl.Lock()` | `[ ]` | `[ ]` |  |  |
 | kubernetes | 58107 | `RLock()` held while blocked in `cond.Wait()` | `[ ]` | `[ ]` |  |  |
 | kubernetes | 62464 | Recursive `RLock` with pending writer | `[ ]` | `[ ]` |  |  |
-| moby | 17176 | Early return without releasing `devices.Lock()` | `[ ]` | `[ ]` |  |  |
-| moby | 25384 | `WaitGroup` never fully decremented | `[ ]` | `[ ]` |  |  |
-| moby | 27782 | `sync.Cond` wait never signaled for write events | `[ ]` | `[ ]` |  |  |
-| moby | 29733 | `sync.Cond` wait with no state update or broadcast | `[ ]` | `[ ]` |  |  |
-| moby | 30408 | `sync.Cond` wait with no manifest and no broadcast | `[ ]` | `[ ]` |  |  |
-| moby | 36114 | Recursive mutex acquisition across helper call | `[ ]` | `[ ]` |  |  |
-| moby | 4951 | AB/BA deadlock between `devices.Lock()` and `info.lock` | `[ ]` | `[ ]` |  |  |
-| moby | 7559 | Error path continues without releasing lock | `[ ]` | `[ ]` |  |  |
-| syncthing | 4829 | Write lock calls helper that takes read lock | `[ ]` | `[ ]` |  |  |
+| moby | 17176 | Early return without releasing `devices.Lock()` | `[X]` | `[ ]` |  | This one I'm not as sure about|
+| moby | 25384 | `WaitGroup` never fully decremented | `[X]` | `[-]` |  |  |
+| moby | 27782 | `sync.Cond` wait never signaled for write events | `[X]` | `[-]` |  |  |
+| moby | 29733 | `sync.Cond` wait with no state update or broadcast | `[X]` | `[-]` |  |  |
+| moby | 30408 | `sync.Cond` wait with no manifest and no broadcast | `[X]` | `[-]` |  | Condition variable deadlock - fields properly guarded but logic error not detected |
+| moby | 36114 | Recursive mutex acquisition across helper call | `[X]` | `[X]` |  |  |
+| moby | 4951 | AB/BA deadlock between `devices.Lock()` and `info.lock` | `[X]` | `[ ]` |  |  |
+| moby | 7559 | Error path continues without releasing lock | `[X]` | `[ ]` |  |  |
+| syncthing | 4829 | Write lock calls helper that takes read lock | `[X]` | `[X]` |  |  |
 
 Summary: 28 pure shared-memory blocking bugs. These are the strongest candidates for annotation-based evaluation.
 
@@ -80,6 +80,75 @@ These are still useful to keep listed, but they are less direct fits for lock-an
 
 Summary: 14 mixed bugs and 25 channel-only bugs, for 67 total blocking tests.
 
-# Nonblocking
+# Nonblocking Shared-Memory Cases
 
-TODO
+Use this table to record:
+
+| Project | Issue | Bug Pattern | Annotated | Detection | Annotation Experience | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| grpc | 3090 | Data race errors | `[ ]` | `[ ]` |  |  |
+| grpc | 1748 | Data race errors | `[ ]` | `[ ]` |  |  |
+| etcd | 9446 | Data race errors | `[ ]` | `[ ]` |  |  |
+| etcd | 8194 | Data race errors | `[ ]` | `[ ]` |  |  |
+| etcd | 4876 | Data race errors | `[ ]` | `[ ]` |  |  |
+| istio | 16742 | Data race errors | `[ ]` | `[ ]` |  |  |
+| istio | 8214 | Data race errors | `[ ]` | `[ ]` |  |  |
+| istio | 8144 | Data race errors | `[ ]` | `[ ]` |  |  |
+| serving | 6472 | Data race errors | `[ ]` | `[ ]` |  |  |
+| serving | 3148 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 89164 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 88331 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 82550 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 82239 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 81148 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 81091 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 80284 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 79631 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 77796 | Data race errors | `[ ]` | `[ ]` |  |  |
+| kubernetes | 49404 | Data race errors | `[ ]` | `[ ]` |  |  |
+| moby | 18412 | Data race errors / Order violation | `[ ]` | `[ ]` |  |  |
+
+Summary: 21 shared-memory data race nonblocking tests.
+
+## Other Nonblocking Cases
+
+These are still useful to keep listed, but they are less direct fits for lock-annotation evaluation.
+
+### Mixed Bugs
+
+| Project | Issues |
+| --- | --- |
+| grpc | 2371 |
+| serving | 5865 |
+
+### Channel / Message-Passing Only
+
+| Project | Issues |
+| --- | --- |
+| grpc | 1687 |
+| etcd | 3077 |
+| istio | 8967 |
+| serving | 3068 |
+
+### Anonymous Function Issues
+
+| Project | Issues |
+| --- | --- |
+| cockroach | 35501 |
+| kubernetes | 70892 |
+| moby | 22941, 27037 |
+
+### Testing Library Issues
+
+| Project | Issues |
+| --- | --- |
+| serving | 6171, 4908 |
+
+### WaitGroup Issues
+
+| Project | Issues |
+| --- | --- |
+| cockroach | 4407 |
+| kubernetes | 13058 |
+
+Summary: 14 other nonblocking tests (2 mixed, 4 channel-only, 4 anonymous function, 2 testing library, 2 WaitGroup), for 35 total nonblocking tests.

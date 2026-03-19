@@ -238,6 +238,50 @@ func reportGoroutineLockOrderInversion(
 	})
 }
 
+func reportGoroutineRecursiveLockPotentialDeadlock(
+	goA *ssa.Go,
+	goB *ssa.Go,
+	fnA *ssa.Function,
+	fnB *ssa.Function,
+	lockName string,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if goA == nil || reporter == nil || fset == nil {
+		return
+	}
+
+	posA := fset.Position(goA.Pos())
+	lineB := 0
+	if goB != nil {
+		lineB = fset.Position(goB.Pos()).Line
+	}
+
+	nameA := "<unknown>"
+	if fnA != nil {
+		nameA = fnA.Name()
+	}
+	nameB := "<unknown>"
+	if fnB != nil {
+		nameB = fnB.Name()
+	}
+
+	msg := "Potential deadlock between goroutines: " +
+		"go " + nameA + " may reacquire " + lockName + " while already held, " +
+		"and go " + nameB + " also acquires " + lockName
+	if lineB > 0 {
+		msg += " (other goroutine starts near line " + strconv.Itoa(lineB) + ")"
+	}
+
+	reporter.Warn(report.Diagnostic{
+		Pos:     goA.Pos(),
+		File:    posA.Filename,
+		Line:    posA.Line,
+		Column:  posA.Column,
+		Message: msg,
+	})
+}
+
 func reportSingleThreadedLockOrderInversion(
 	callA *ssa.Call,
 	callB *ssa.Call,
