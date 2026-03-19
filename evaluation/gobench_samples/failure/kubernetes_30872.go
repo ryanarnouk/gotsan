@@ -29,6 +29,7 @@ type SubInformer struct {
 }
 
 // @acquires(fi.mu)
+// @acquires(si.mu)
 func (fi *FederatedInformer) OnAdd(cluster string, si *SubInformer) {
 	fi.mu.Lock()
 	defer fi.mu.Unlock()
@@ -41,6 +42,7 @@ func (fi *FederatedInformer) OnAdd(cluster string, si *SubInformer) {
 }
 
 // @acquires(si.mu)
+// @acquires(fi.mu)
 func (si *SubInformer) Synced(fi *FederatedInformer) bool {
 	si.mu.Lock()
 	defer si.mu.Unlock()
