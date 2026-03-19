@@ -145,3 +145,24 @@ func TestLockCoveredByContractFallbackToLastSegment(t *testing.T) {
 		t.Fatal("expected fallback last-segment coverage to match connTrackLock")
 	}
 }
+
+func TestTypeEmbedsLockAnonymousField(t *testing.T) {
+	mutexType := types.NewNamed(types.NewTypeName(token.NoPos, nil, "Mutex", nil), types.NewStruct(nil, nil), nil)
+	embeddedMutexField := types.NewField(token.NoPos, nil, "Mutex", mutexType, true)
+	containerType := types.NewStruct([]*types.Var{embeddedMutexField}, nil)
+
+	if !typeEmbedsLock(containerType, embeddedMutexField) {
+		t.Fatal("expected anonymous embedded field to cover lock object")
+	}
+}
+
+func TestTypeEmbedsLockRejectsUnrelatedField(t *testing.T) {
+	mutexType := types.NewNamed(types.NewTypeName(token.NoPos, nil, "Mutex", nil), types.NewStruct(nil, nil), nil)
+	embeddedMutexField := types.NewField(token.NoPos, nil, "Mutex", mutexType, true)
+	containerType := types.NewStruct([]*types.Var{embeddedMutexField}, nil)
+
+	otherMutexField := types.NewField(token.NoPos, nil, "Mutex", types.Typ[types.Int], true)
+	if typeEmbedsLock(containerType, otherMutexField) {
+		t.Fatal("expected unrelated anonymous field not to be considered covered")
+	}
+}

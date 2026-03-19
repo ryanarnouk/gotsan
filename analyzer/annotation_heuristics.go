@@ -103,7 +103,7 @@ func preferredLockDisplayName(
 	if ok && fn != nil && contract != nil {
 		requirements := contract.Expectations[annotationKind]
 		for _, req := range requirements {
-			if resolved := resolveObjectInScope(fn, req.Target); resolved == lockObj {
+			if requirementTargetCoversLock(fn, req.Target, lockObj) {
 				return req.Target
 			}
 		}
@@ -144,18 +144,68 @@ func lockCoveredByContract(
 
 	requirements := contract.Expectations[kind]
 	for _, req := range requirements {
-		if fn != nil {
-			resolved := resolveObjectInScope(fn, req.Target)
-			if resolved != nil {
-				if resolved == lockObj {
-					return true
-				}
-				continue
-			}
+		if fn != nil && requirementTargetCoversLock(fn, req.Target, lockObj) {
+			return true
 		}
 
 		if req.Target == lockObj.Name() || lastTargetSegment(req.Target) == lockObj.Name() {
 			return true
+		}
+	}
+
+	return false
+}
+
+func requirementTargetCoversLock(fn *ssa.Function, target string, lockObj types.Object) bool {
+	if fn == nil || target == "" || lockObj == nil {
+		return false
+	}
+
+	resolved := resolveObjectInScope(fn, target)
+	if resolved == nil {
+		return false
+	}
+
+	if resolved == lockObj {
+		return true
+	}
+
+	return objectTypeEmbedsLock(resolved, lockObj)
+}
+
+func objectTypeEmbedsLock(container types.Object, lockObj types.Object) bool {
+	if container == nil || lockObj == nil {
+		return false
+	}
+
+	v, ok := container.(*types.Var)
+	if !ok {
+		return false
+	}
+
+	return typeEmbedsLock(v.Type(), lockObj)
+}
+
+func typeEmbedsLock(typ types.Type, lockObj types.Object) bool {
+	strct, ok := getUnderlyingStruct(typ)
+	if !ok || strct == nil {
+		return false
+	}
+
+	for i := 0; i < strct.NumFields(); i++ {
+		field := strct.Field(i)
+		if field == nil {
+			continue
+		}
+
+		if field == lockObj {
+			return true
+		}
+
+		if field.Anonymous() && field.Name() == lockObj.Name() {
+			if types.Identical(field.Type(), lockObj.Type()) {
+				return true
+			}
 		}
 	}
 
