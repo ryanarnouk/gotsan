@@ -103,6 +103,37 @@ func reportAlreadyAcquiredLock(
 	})
 }
 
+func reportReacquiredLock(
+	msg *ssa.Call,
+	fn *ssa.Function,
+	lockName string,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	fnName := "<unknown>"
+	if fn != nil {
+		fnName = fn.Name()
+	}
+
+	if lockName == "" {
+		lockName = "<lock>"
+	}
+
+	if reporter == nil || fset == nil {
+		logger.Warnf("Function %s reacquires lock %s while it is already held", fnName, lockName)
+		return
+	}
+
+	position := fset.Position(msg.Pos())
+	reporter.Warn(report.Diagnostic{
+		Pos:     msg.Pos(),
+		File:    position.Filename,
+		Line:    position.Line,
+		Column:  position.Column,
+		Message: "Function " + fnName + " reacquires lock " + lockName + " while it is already held",
+	})
+}
+
 func reportReturnMissingLock(
 	fn *ssa.Function,
 	instr ssa.Instruction,

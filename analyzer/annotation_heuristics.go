@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"gotsan/ir"
 	"gotsan/utils/report"
+	"strings"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -30,7 +31,7 @@ func detectLikelyMissingLockAnnotations(
 		return
 	}
 
-	kind, lockName, ok := firstLikelyMissingAnnotation(
+	kind, lockObj, ok := firstLikelyMissingAnnotation(
 		evidenceByLock,
 		func(lockObj types.Object) bool {
 			return lockCoveredByContract(fn, contract, ir.Acquires, lockObj)
@@ -43,13 +44,11 @@ func detectLikelyMissingLockAnnotations(
 		return
 	}
 
-	var pos token.Pos
-	for lockObj, evidence := range evidenceByLock {
-		if lockObj == nil || lockObj.Name() != lockName {
-			continue
-		}
-		pos = evidence.firstPos
-		break
+	evidence := evidenceByLock[lockObj]
+	pos := evidence.firstPos
+	lockName := preferredLockDisplayName(fn, contract, kind, lockObj)
+	if lockName == "" {
+		lockName = lockObj.Name()
 	}
 
 	reportLikelyMissingAnnotation(
@@ -66,14 +65,14 @@ func firstLikelyMissingAnnotation(
 	evidenceByLock map[types.Object]lockUsageEvidence,
 	hasAcquiresForLock func(types.Object) bool,
 	hasRequiresForLock func(types.Object) bool,
-) (string, string, bool) {
+) (string, types.Object, bool) {
 	for lockObj, evidence := range evidenceByLock {
 		if lockObj == nil {
 			continue
 		}
 
 		if evidence.lockCalls > 0 && evidence.unlockCalls > 0 && !hasAcquiresForLock(lockObj) {
-			return "acquires", lockObj.Name(), true
+			return "acquires", lockObj, true
 		}
 	}
 
@@ -83,11 +82,54 @@ func firstLikelyMissingAnnotation(
 		}
 
 		if evidence.lockCalls == 0 && evidence.unlockCalls > 0 && !hasRequiresForLock(lockObj) {
-			return "requires", lockObj.Name(), true
+			return "requires", lockObj, true
 		}
 	}
 
-	return "", "", false
+	return "", nil, false
+}
+
+func preferredLockDisplayName(
+	fn *ssa.Function,
+	contract *ir.FunctionContract,
+	kind string,
+	lockObj types.Object,
+) string {
+	if lockObj == nil {
+		return ""
+	}
+
+	annotationKind, ok := annotationKindFromString(kind)
+	if ok && fn != nil && contract != nil {
+		requirements := contract.Expectations[annotationKind]
+		for _, req := range requirements {
+			if resolved := resolveObjectInScope(fn, req.Target); resolved == lockObj {
+				return req.Target
+			}
+		}
+	}
+
+	if fn != nil {
+		if field, ok := lockObj.(*types.Var); ok && field.Anonymous() && len(fn.Params) > 0 {
+			recvName := fn.Params[0].Name()
+			if recvName != "" {
+				return recvName + "." + lockObj.Name()
+			}
+		}
+	}
+
+	return lockObj.Name()
+}
+
+func annotationKindFromString(kind string) (ir.AnnotationKind, bool) {
+	switch kind {
+	case "acquires":
+		return ir.Acquires, true
+	case "requires":
+		return ir.Requires, true
+	default:
+		return ir.Acquires, false
+	}
 }
 
 func lockCoveredByContract(
@@ -96,26 +138,45 @@ func lockCoveredByContract(
 	kind ir.AnnotationKind,
 	lockObj types.Object,
 ) bool {
-	if fn == nil || contract == nil || lockObj == nil {
+	if contract == nil || lockObj == nil {
 		return false
 	}
 
 	requirements := contract.Expectations[kind]
 	for _, req := range requirements {
-		resolved := resolveObjectInScope(fn, req.Target)
-		if resolved != nil {
-			if resolved == lockObj {
-				return true
+		if fn != nil {
+			resolved := resolveObjectInScope(fn, req.Target)
+			if resolved != nil {
+				if resolved == lockObj {
+					return true
+				}
+				continue
 			}
-			continue
 		}
 
-		if req.Target == lockObj.Name() {
+		if req.Target == lockObj.Name() || lastTargetSegment(req.Target) == lockObj.Name() {
 			return true
 		}
 	}
 
 	return false
+}
+
+func lastTargetSegment(target string) string {
+	if target == "" {
+		return ""
+	}
+
+	idx := strings.LastIndex(target, ".")
+	if idx == -1 {
+		return target
+	}
+
+	if idx+1 >= len(target) {
+		return ""
+	}
+
+	return target[idx+1:]
 }
 
 func collectLockUsageEvidence(fn *ssa.Function) map[types.Object]lockUsageEvidence {

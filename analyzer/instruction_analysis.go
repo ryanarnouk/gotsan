@@ -21,7 +21,7 @@ func analyzeInstructions(
 	for _, instr := range instrs {
 		switch msg := instr.(type) {
 		case *ssa.Call:
-			handleCallInstruction(msg, state, registry, reporter, fset)
+			handleCallInstruction(fn, msg, state, registry, reporter, fset)
 		case *ssa.Defer:
 			registerDeferInstruction(msg, state)
 		case *ssa.RunDefers:
@@ -140,6 +140,7 @@ func handleStaticCalleeFunction(calleeFn *ssa.Function, callSite *ssa.Call, regi
 }
 
 func handleCallInstruction(
+	fn *ssa.Function,
 	msg *ssa.Call,
 	state *AnalysisState,
 	registry *ir.ContractRegistry,
@@ -149,12 +150,17 @@ func handleCallInstruction(
 	if isLockCall(msg) {
 		obj := getLockObject(msg)
 		if obj != nil {
+			if state.MayHeldLocks[obj] {
+				reportReacquiredLock(msg, fn, obj.Name(), reporter, fset)
+			}
 			state.HeldLocks[obj] = true
+			state.MayHeldLocks[obj] = true
 		}
 	} else if isUnlockCall(msg) {
 		obj := getLockObject(msg)
 		if obj != nil {
 			delete(state.HeldLocks, obj)
+			delete(state.MayHeldLocks, obj)
 		}
 	} else {
 		callee := msg.Call.StaticCallee()
@@ -171,11 +177,13 @@ func applyDeferredEffects(state *AnalysisState) {
 	// Add any locks that were deferred to the lockset
 	for obj := range state.DeferredLocks {
 		state.HeldLocks[obj] = true
+		state.MayHeldLocks[obj] = true
 	}
 
 	// Remove any locks from the lockset that were unlocked in a defer step
 	for obj := range state.DeferredUnlocks {
 		delete(state.HeldLocks, obj)
+		delete(state.MayHeldLocks, obj)
 	}
 	state.DeferredLocks = make(LockSet)
 	state.DeferredUnlocks = make(LockSet)

@@ -3,6 +3,7 @@ package analyzer
 import (
 	"go/token"
 	"go/types"
+	"gotsan/ir"
 	"testing"
 )
 
@@ -16,7 +17,7 @@ func TestDetectLikelyMissingLockAnnotationsClassifiesAcquiresCandidate(t *testin
 		},
 	}
 
-	kind, target, ok := firstLikelyMissingAnnotation(
+	kind, targetObj, ok := firstLikelyMissingAnnotation(
 		evidence,
 		func(types.Object) bool { return false },
 		func(types.Object) bool { return false },
@@ -27,8 +28,8 @@ func TestDetectLikelyMissingLockAnnotationsClassifiesAcquiresCandidate(t *testin
 	if kind != "acquires" {
 		t.Fatalf("expected acquires, got %s", kind)
 	}
-	if target != "mu" {
-		t.Fatalf("expected mu, got %s", target)
+	if targetObj != lockObj {
+		t.Fatalf("expected lock object %v, got %v", lockObj, targetObj)
 	}
 }
 
@@ -42,7 +43,7 @@ func TestDetectLikelyMissingLockAnnotationsClassifiesRequiresCandidate(t *testin
 		},
 	}
 
-	kind, target, ok := firstLikelyMissingAnnotation(
+	kind, targetObj, ok := firstLikelyMissingAnnotation(
 		evidence,
 		func(types.Object) bool { return true },
 		func(types.Object) bool { return false },
@@ -53,8 +54,8 @@ func TestDetectLikelyMissingLockAnnotationsClassifiesRequiresCandidate(t *testin
 	if kind != "requires" {
 		t.Fatalf("expected requires, got %s", kind)
 	}
-	if target != "mu" {
-		t.Fatalf("expected mu, got %s", target)
+	if targetObj != lockObj {
+		t.Fatalf("expected lock object %v, got %v", lockObj, targetObj)
 	}
 }
 
@@ -94,7 +95,7 @@ func TestDetectLikelyMissingLockAnnotationsPerLockCoverage(t *testing.T) {
 		},
 	}
 
-	kind, target, ok := firstLikelyMissingAnnotation(
+	kind, targetObj, ok := firstLikelyMissingAnnotation(
 		evidence,
 		func(obj types.Object) bool {
 			return obj == siMu
@@ -110,7 +111,37 @@ func TestDetectLikelyMissingLockAnnotationsPerLockCoverage(t *testing.T) {
 		t.Fatalf("expected acquires, got %s", kind)
 	}
 
-	if target != "fi.mu" {
-		t.Fatalf("expected fi.mu target, got %s", target)
+	if targetObj != fiMu {
+		t.Fatalf("expected fi.mu lock object, got %v", targetObj)
+	}
+}
+
+func TestLastTargetSegment(t *testing.T) {
+	tests := []struct {
+		target string
+		want   string
+	}{
+		{target: "proxy.connTrackLock", want: "connTrackLock"},
+		{target: "mu", want: "mu"},
+		{target: "", want: ""},
+		{target: "a.", want: ""},
+	}
+
+	for _, tc := range tests {
+		got := lastTargetSegment(tc.target)
+		if got != tc.want {
+			t.Fatalf("lastTargetSegment(%q) = %q, want %q", tc.target, got, tc.want)
+		}
+	}
+}
+
+func TestLockCoveredByContractFallbackToLastSegment(t *testing.T) {
+	lockObj := types.NewVar(token.NoPos, nil, "connTrackLock", types.Typ[types.Int])
+
+	contract := &ir.FunctionContract{Expectations: make(map[ir.AnnotationKind][]ir.Requirement)}
+	contract.Expectations[ir.Acquires] = []ir.Requirement{{Target: "proxy.connTrackLock"}}
+
+	if !lockCoveredByContract(nil, contract, ir.Acquires, lockObj) {
+		t.Fatal("expected fallback last-segment coverage to match connTrackLock")
 	}
 }

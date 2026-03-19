@@ -24,7 +24,7 @@ func updateSuccessorState(
 		return
 	}
 
-	merged := existing.Intersect(current)
+	merged := existing.MergeForSuccessor(current)
 	if !existing.Equals(merged) {
 		blockEntryStates[succ.Index] = merged
 		worklist.Push(succ)

@@ -170,7 +170,12 @@ func resolveObjectInScope(fn *ssa.Function, targetName string) types.Object {
 		return resolveIdentifier(fn, targetName)
 	}
 
-	return resolveMultiAccess(fn, parts)
+	obj := resolveMultiAccess(fn, parts)
+	if obj != nil {
+		return obj
+	}
+
+	return resolveObservedFieldAccess(fn, parts[1:])
 }
 
 func resolveParamField(callee *ssa.Function, callArgs []ssa.Value, parts []string) types.Object {
@@ -181,6 +186,59 @@ func resolveParamField(callee *ssa.Function, callArgs []ssa.Value, parts []strin
 		}
 	}
 	return nil
+}
+
+// When annotation roots refer to callee-local aliases (e.g., info.lock), there is
+// no direct caller argument mapping. In that case, infer the target by scanning
+// SSA values in the callee for a unique field-path match.
+func resolveObservedFieldAccess(fn *ssa.Function, fieldPath []string) types.Object {
+	if fn == nil || len(fieldPath) == 0 {
+		return nil
+	}
+
+	var candidate types.Object
+
+	// Check parameters first; they may directly expose the requested field path.
+	for _, p := range fn.Params {
+		obj := resolveValueField(p, fieldPath)
+		if obj == nil {
+			continue
+		}
+
+		if candidate == nil {
+			candidate = obj
+			continue
+		}
+
+		if candidate != obj {
+			return nil
+		}
+	}
+
+	for _, block := range fn.Blocks {
+		for _, instr := range block.Instrs {
+			val, ok := instr.(ssa.Value)
+			if !ok {
+				continue
+			}
+
+			obj := resolveValueField(val, fieldPath)
+			if obj == nil {
+				continue
+			}
+
+			if candidate == nil {
+				candidate = obj
+				continue
+			}
+
+			if candidate != obj {
+				return nil
+			}
+		}
+	}
+
+	return candidate
 }
 
 func resolveObjectAtInvocation(callee *ssa.Function, callArgs []ssa.Value, targetName string) types.Object {
@@ -202,6 +260,14 @@ func resolveObjectAtInvocation(callee *ssa.Function, callArgs []ssa.Value, targe
 	// Fallback for package-level identifiers (e.g., @requires(mu) where mu is a global).
 	if len(parts) == 1 {
 		if obj := findInPackageGlobals(callee, targetName); obj != nil {
+			return obj
+		}
+	}
+
+	// Fallback for callee-local aliases that eventually access a field
+	// (e.g., local 'info' in '@acquires(info.lock)').
+	if len(parts) > 1 {
+		if obj := resolveObservedFieldAccess(callee, parts[1:]); obj != nil {
 			return obj
 		}
 	}
