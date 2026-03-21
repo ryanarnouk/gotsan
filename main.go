@@ -21,9 +21,10 @@ func main() {
 	filePath := flag.String("file", "", "path to Go source file to analyze")
 	pkgPattern := flag.String("pkg", "", "Go package to analyze")
 	lenient := flag.Bool("l", false, "lenient mode: only detect deadlocks involving goroutines")
-	strict := flag.Bool("s", false, "strict mode: detect deadlocks in single-threaded code as well")
+	strict := flag.Bool("s", false, "strict mode: detect deadlocks in single-threaded code as well (default)")
 	verbose := flag.Bool("v", false, "enable debug logs")
 	ignoreMissingAnnotations := flag.Bool("ignore-missing-annotations", false, "suppress heuristic missing annotation advisory warnings")
+	includeTestFiles := flag.Bool("include-tests", true, "include test files in analysis (default: true)")
 	flag.Parse()
 
 	if *lenient && *strict {
@@ -39,13 +40,23 @@ func main() {
 		fmt.Println("Usage:")
 		fmt.Println("   gotsan -file <path-to-go-file>")
 		fmt.Println("   gotsan -pkg <path-to-go-pkg>")
+		fmt.Println("")
+		fmt.Println("Flags:")
+		fmt.Println("   -file <path>              path to Go source file to analyze")
+		fmt.Println("   -pkg <pattern>            Go package pattern to analyze")
+		fmt.Println("   -l                        lenient mode: detect deadlocks in concurrent code only")
+		fmt.Println("   -s                        strict mode: detect deadlocks in single-threaded code (default)")
+		fmt.Println("   -v                        verbose logging")
+		fmt.Println("   -include-tests            include test files in analysis (default: true)")
+		fmt.Println("   -ignore-missing-annotations suppress missing annotation advisory warnings")
 		os.Exit(1)
 	}
 
 	fset := token.NewFileSet()
 	cfg := &packages.Config{
-		Mode: packages.LoadSyntax,
-		Fset: fset,
+		Mode:  packages.LoadSyntax,
+		Fset:  fset,
+		Tests: *includeTestFiles,
 	}
 
 	pattern := *pkgPattern
@@ -83,7 +94,12 @@ func main() {
 	reporter := report.NewReporter()
 	reporter.IgnoreMissingAnnotations = *ignoreMissingAnnotations
 
-	strictMode := *strict
+	strictMode := true
+	if *lenient {
+		strictMode = false
+	} else if *strict {
+		strictMode = true
+	}
 
 	for _, ssaPkg := range ssaPkgs {
 		if ssaPkg == nil {

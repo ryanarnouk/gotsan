@@ -35,3 +35,5 @@ go.work.sum
 
 .DS_Store
 /bin/
+
+evaluation/gobench_samples/results
