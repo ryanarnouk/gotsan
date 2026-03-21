@@ -14,10 +14,15 @@ func NewDialer() *Dialer {
 }
 
 type Authenticator struct {
+	mu sync.Mutex
+	// @guarded_by(mu)
 	onRotate func()
 }
 
+// @acquires(a.mu)
 func (a *Authenticator) UpdateTransportConfig() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	d := NewDialer()
 	a.onRotate = d.CloseAll
 }

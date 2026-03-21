@@ -158,6 +158,24 @@ func resolveValueField(val ssa.Value, fieldPath []string) types.Object {
 	return resolveNestedField(val.Type(), fieldPath)
 }
 
+func resolveNamedTypeField(fn *ssa.Function, typeName string, fieldPath []string) types.Object {
+	if fn == nil || fn.Pkg == nil || typeName == "" || len(fieldPath) == 0 {
+		return nil
+	}
+
+	member, ok := fn.Pkg.Members[typeName]
+	if !ok {
+		return nil
+	}
+
+	typeMember, ok := member.(*ssa.Type)
+	if !ok || typeMember == nil {
+		return nil
+	}
+
+	return resolveNestedField(typeMember.Type(), fieldPath)
+}
+
 // Resolve a mutex variable name in an annotation to the corresponding assignment
 // in the SSA blocks
 func resolveObjectInScope(fn *ssa.Function, targetName string) types.Object {
@@ -172,6 +190,10 @@ func resolveObjectInScope(fn *ssa.Function, targetName string) types.Object {
 
 	obj := resolveMultiAccess(fn, parts)
 	if obj != nil {
+		return obj
+	}
+
+	if obj := resolveNamedTypeField(fn, parts[0], parts[1:]); obj != nil {
 		return obj
 	}
 
@@ -257,6 +279,10 @@ func resolveObjectAtInvocation(callee *ssa.Function, callArgs []ssa.Value, targe
 		return obj
 	}
 
+	if obj := resolveNamedTypeField(callee, parts[0], parts[1:]); obj != nil {
+		return obj
+	}
+
 	// Fallback for package-level identifiers (e.g., @requires(mu) where mu is a global).
 	if len(parts) == 1 {
 		if obj := findInPackageGlobals(callee, targetName); obj != nil {
@@ -273,6 +299,33 @@ func resolveObjectAtInvocation(callee *ssa.Function, callArgs []ssa.Value, targe
 	}
 
 	return nil
+}
+
+// annotationRootIsCallsiteLocal reports whether a contract target root cannot be
+// mapped at a call site because it is not a callee parameter/receiver/global.
+// Example: @acquires(localAlias.mu) where localAlias is created inside callee.
+func annotationRootIsCallsiteLocal(callee *ssa.Function, targetName string) bool {
+	if callee == nil || targetName == "" {
+		return false
+	}
+
+	parts := splitTarget(targetName)
+	if len(parts) <= 1 {
+		return false
+	}
+
+	root := parts[0]
+	for _, p := range callee.Params {
+		if p.Name() == root {
+			return false
+		}
+	}
+
+	if findInPackageGlobals(callee, root) != nil {
+		return false
+	}
+
+	return true
 }
 
 // Resolve object at the location of the call of a function

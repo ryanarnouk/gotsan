@@ -46,11 +46,13 @@ func NewWithRecorder() *Heap {
 }
 
 type PriorityQueue struct {
-	stop        chan struct{}
-	lock        sync.RWMutex
+	stop chan struct{}
+	lock sync.RWMutex
+	// @guarded_by(lock)
 	podBackoffQ *Heap
 }
 
+// @acquires(p.lock)
 func (p *PriorityQueue) flushBackoffQCompleted() {
 	p.lock.Lock()
 	defer p.lock.Unlock()

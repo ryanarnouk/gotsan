@@ -168,18 +168,50 @@ func reportUnresolvableAnnotation(
 	reporter *report.Reporter,
 	fset *token.FileSet,
 ) {
+	message := "Annotation @" + kind + "(" + target + ") is not checkable in this context - check spelling and resolver prefix"
+
 	if reporter == nil || fset == nil || pos == token.NoPos {
-		logger.Warnf("Annotation @%s(%s) could not be resolved to any variable", kind, target)
+		logger.Warnf("%s", message)
 		return
 	}
 
 	position := fset.Position(pos)
-	reporter.Warn(report.Diagnostic{
+	reporter.WarnHeuristic(report.Diagnostic{
 		Pos:     pos,
 		File:    position.Filename,
 		Line:    position.Line,
 		Column:  position.Column,
-		Message: "Annotation @" + kind + "(" + target + ") could not be resolved to any variable — check spelling and receiver prefix",
+		Message: message,
+	})
+}
+
+func reportCallsiteLocalRootAnnotation(
+	kind string,
+	target string,
+	calleeFn *ssa.Function,
+	pos token.Pos,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	fnName := "callee"
+	if calleeFn != nil {
+		fnName = calleeFn.Name()
+	}
+
+	message := "Annotation @" + kind + "(" + target + ") is not checkable at call sites because its root is local to " + fnName
+
+	if reporter == nil || fset == nil || pos == token.NoPos {
+		logger.Warnf("%s", message)
+		return
+	}
+
+	position := fset.Position(pos)
+	reporter.WarnHeuristic(report.Diagnostic{
+		Pos:     pos,
+		File:    position.Filename,
+		Line:    position.Line,
+		Column:  position.Column,
+		Message: message,
 	})
 }
 

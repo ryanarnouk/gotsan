@@ -16,6 +16,7 @@ type remoteLock struct {
 	m map[string]*sync.Mutex
 }
 
+// @acquires(l.RWMutex)
 func (l *remoteLock) URLLock(url string) {
 	l.Lock()
 	if _, ok := l.m[url]; !ok {
@@ -25,6 +26,7 @@ func (l *remoteLock) URLLock(url string) {
 	l.Unlock()
 }
 
+// @acquires(l.RWMutex)
 func (l *remoteLock) URLUnlock(url string) {
 	l.RLock()
 	defer l.RUnlock()

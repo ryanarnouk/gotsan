@@ -18,7 +18,7 @@ type File struct {
 
 // Path returns the full path of the File object
 //
-// @acquires(mu)
+// @acquires(f.mu)
 func (f *File) Path() string {
 	f.mu.Lock()
 	name := f.name
@@ -29,7 +29,7 @@ func (f *File) Path() string {
 
 // Size of the file object
 //
-// @acquires(mu)
+// @acquires(f.mu)
 func (f *File) Size() int64 {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -38,7 +38,7 @@ func (f *File) Size() int64 {
 
 // Truncate the file to size
 //
-// @acquires(mu)
+// @acquires(f.mu)
 func (f *File) Truncate(size int64) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -60,7 +60,7 @@ type Dir struct {
 
 // Path returns the full path of the Dir
 //
-// @acquires(mu)
+// @acquires(d.mu)
 func (d *Dir) Path() string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -72,7 +72,7 @@ func (d *Dir) Path() string {
 
 // Size of all the objects in the Dir
 //
-// @acquires(mu)
+// @acquires(d.mu)
 func (d *Dir) Size() int64 {
 	d.mu.Lock()
 	defer d.mu.Unlock()

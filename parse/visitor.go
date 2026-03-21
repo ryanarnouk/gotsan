@@ -38,7 +38,12 @@ func (v *Visitor) parseAnnotations(groups ...*ast.CommentGroup) []Annotation {
 		}
 		for _, c := range group.List {
 			ann, err := ParseAnnotation(c.Text)
-			if err == nil && ann.Kind != ir.None {
+			if err != nil {
+				emitParseWarning("Ignoring annotation %q at %s: %v", c.Text, v.Fset.Position(c.Pos()), err)
+				continue
+			}
+
+			if ann.Kind != ir.None {
 				discovered = append(discovered, ann)
 			}
 		}
@@ -150,6 +155,7 @@ func (v *Visitor) Visit(node ast.Node) ast.Visitor {
 		contract := v.handleFuncDecl(n)
 		key := ir.MakeFunctionKey(n.Name.Name, receiverTypeName(n.Recv))
 		v.Registry.Functions[key] = contract
+		v.Registry.FunctionsByPos[n.Pos()] = contract
 		if _, exists := v.Registry.Functions[n.Name.Name]; !exists {
 			v.Registry.Functions[n.Name.Name] = contract
 		}

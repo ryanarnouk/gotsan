@@ -90,6 +90,11 @@ func checkRequiresExpectation(exp ir.Requirement, calleeFn *ssa.Function, callSi
 	// Turn the mutex name in the annotation to an SSA object
 	requiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
 	if requiredLockObject == nil {
+		if annotationRootIsCallsiteLocal(calleeFn, exp.Target) {
+			reportCallsiteLocalRootAnnotation(ir.Requires.String(), exp.Target, calleeFn, callSite.Pos(), reporter, fset)
+			return
+		}
+
 		reportUnresolvableAnnotation(ir.Requires.String(), exp.Target, callSite.Pos(), reporter, fset)
 		return
 	}
@@ -105,6 +110,11 @@ func checkAcquiresExpectation(exp ir.Requirement, calleeFn *ssa.Function, callSi
 	// Turn the mutex name in the annotation to an SSA object
 	acquiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
 	if acquiredLockObject == nil {
+		if annotationRootIsCallsiteLocal(calleeFn, exp.Target) {
+			reportCallsiteLocalRootAnnotation(ir.Acquires.String(), exp.Target, calleeFn, callSite.Pos(), reporter, fset)
+			return
+		}
+
 		reportUnresolvableAnnotation(ir.Acquires.String(), exp.Target, callSite.Pos(), reporter, fset)
 		return
 	}

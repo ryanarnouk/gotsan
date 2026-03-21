@@ -26,6 +26,7 @@ type Store struct {
 	}
 }
 
+// @acquires(s.coalescedMu)
 func (s *Store) sendQueuedHeartbeats() {
 	s.coalescedMu.Lock()         // LockA acquire
 	defer s.coalescedMu.Unlock() // LockA release
@@ -47,6 +48,7 @@ type Replica struct {
 	store  *Store
 }
 
+// @acquires(r.raftMu)
 func (r *Replica) reportUnreachable() {
 	r.raftMu.Lock() // LockB acquire
 	//+time.Sleep(time.Nanosecond)
@@ -54,6 +56,7 @@ func (r *Replica) reportUnreachable() {
 	// LockB release
 }
 
+// @acquires(r.raftMu)
 func (r *Replica) tick() {
 	r.raftMu.Lock() // LockB acquire
 	defer r.raftMu.Unlock()
@@ -61,6 +64,7 @@ func (r *Replica) tick() {
 	// LockB release
 }
 
+// @acquires(r.mu)
 func (r *Replica) tickRaftMuLocked() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -68,6 +72,7 @@ func (r *Replica) tickRaftMuLocked() {
 		return
 	}
 }
+
 func (r *Replica) maybeQuiesceLocked() bool {
 	for i := 0; i < 2; i++ {
 		if !r.maybeCoalesceHeartbeat() {
@@ -76,6 +81,8 @@ func (r *Replica) maybeQuiesceLocked() bool {
 	}
 	return false
 }
+
+// @acquires(r.store.coalescedMu)
 func (r *Replica) maybeCoalesceHeartbeat() bool {
 	msgtype := uintptr(unsafe.Pointer(r)) % 3
 	switch msgtype {

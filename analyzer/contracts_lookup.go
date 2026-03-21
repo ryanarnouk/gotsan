@@ -5,6 +5,7 @@ import (
 	"gotsan/ir"
 	"gotsan/utils/logger"
 	"gotsan/utils/report"
+	"strings"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -24,8 +25,14 @@ func receiverTypeName(fn *ssa.Function) string {
 
 // Retrieve function contract from the registry
 func contractForFunction(fn *ssa.Function, registry *ir.ContractRegistry) *ir.FunctionContract {
-	if fn == nil {
+	if fn == nil || registry == nil {
 		return nil
+	}
+
+	if fn.Pos() != token.NoPos {
+		if c := registry.FunctionsByPos[fn.Pos()]; c != nil {
+			return c
+		}
 	}
 
 	recv := receiverTypeName(fn)
@@ -37,10 +44,95 @@ func contractForFunction(fn *ssa.Function, registry *ir.ContractRegistry) *ir.Fu
 		if c := registry.Functions[ir.MakeFunctionKey(fn.Name(), recv)]; c != nil {
 			return c
 		}
+
+		if strings.HasPrefix(recv, "*") {
+			if c := registry.Functions[ir.MakeFunctionKey(fn.Name(), strings.TrimPrefix(recv, "*"))]; c != nil {
+				return c
+			}
+		} else {
+			if c := registry.Functions[ir.MakeFunctionKey(fn.Name(), "*"+recv)]; c != nil {
+				return c
+			}
+		}
 	}
 
-	// Fallback to plain function name
+	// Some SSA variants lose Signature.Recv, but still carry receiver-like first
+	// parameter (e.g., c *tableNameCache). Try that before plain-name fallback.
+	if recv == "" && len(fn.Params) > 0 {
+		paramRecv := ir.NormalizeTypeName(fn.Params[0].Type().String())
+		if c := registry.Functions[ir.MakeFunctionKey(fn.Name(), paramRecv)]; c != nil {
+			return c
+		}
+
+		if strings.HasPrefix(paramRecv, "*") {
+			if c := registry.Functions[ir.MakeFunctionKey(fn.Name(), strings.TrimPrefix(paramRecv, "*"))]; c != nil {
+				return c
+			}
+		} else {
+			if c := registry.Functions[ir.MakeFunctionKey(fn.Name(), "*"+paramRecv)]; c != nil {
+				return c
+			}
+		}
+	}
+
+	// Last chance: disambiguate same-name contracts (e.g., remove methods on
+	// different receivers) by preferring expectations resolvable in this function.
+	if c := bestResolvableSameNameContract(fn, registry); c != nil {
+		return c
+	}
+
+	// Final fallback to plain function name.
 	return registry.Functions[fn.Name()]
+}
+
+func expectationResolvableScore(fn *ssa.Function, c *ir.FunctionContract) int {
+	if fn == nil || c == nil {
+		return 0
+	}
+
+	score := 0
+	kinds := []ir.AnnotationKind{ir.Requires, ir.Acquires, ir.Returns}
+	for _, kind := range kinds {
+		for _, req := range c.Expectations[kind] {
+			if resolveObjectInScope(fn, req.Target) != nil {
+				score++
+			}
+		}
+	}
+
+	return score
+}
+
+func bestResolvableSameNameContract(fn *ssa.Function, registry *ir.ContractRegistry) *ir.FunctionContract {
+	if fn == nil || registry == nil {
+		return nil
+	}
+
+	suffix := "." + fn.Name()
+	var best *ir.FunctionContract
+	bestScore := 0
+
+	for key, c := range registry.Functions {
+		if c == nil {
+			continue
+		}
+
+		if key != fn.Name() && !strings.HasSuffix(key, suffix) {
+			continue
+		}
+
+		score := expectationResolvableScore(fn, c)
+		if score > bestScore {
+			best = c
+			bestScore = score
+		}
+	}
+
+	if bestScore > 0 {
+		return best
+	}
+
+	return nil
 }
 
 // Creates the initial lockset for a function, according to the Requires

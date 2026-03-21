@@ -30,6 +30,7 @@ type DeviceSet struct {
 	nrDeletedDevices int
 }
 
+// @acquires(devices.Mutex)
 func (devices *DeviceSet) cleanupDeletedDevices() error {
 	devices.Lock()
 	if devices.nrDeletedDevices == 0 {

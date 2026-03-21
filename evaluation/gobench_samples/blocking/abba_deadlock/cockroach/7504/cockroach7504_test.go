@@ -50,6 +50,9 @@ type tableState struct {
 	active         *LeaseSet
 }
 
+// @acquires(t.mu)
+// @acquires(LeaseState.mu)
+// @acquires(s.mu)
 func (t *tableState) release(lease *LeaseState) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -70,6 +73,9 @@ type tableNameCache struct {
 	tables map[int]*LeaseState
 }
 
+// @acquires(c.mu)
+// @acquires(LeaseState.mu)
+// @acquires(lease.mu)
 func (c *tableNameCache) get(id int) {
 	c.mu.Lock() // LockA acquire
 	defer c.mu.Unlock()
@@ -87,6 +93,7 @@ func (c *tableNameCache) get(id int) {
 	// LockA release
 }
 
+// @acquires(c.mu)
 func (c *tableNameCache) remove(lease *LeaseState) {
 	c.mu.Lock() // LockA acquire
 	defer c.mu.Unlock()
@@ -159,7 +166,7 @@ func TestCockroach7504(t *testing.T) {
 
 	mgr := NewLeaseManager(nc, ts)
 	var wg sync.WaitGroup
-	
+
 	wg.Add(2)
 	// G1
 	go func() {
@@ -174,6 +181,6 @@ func TestCockroach7504(t *testing.T) {
 		mgr.Release(lset.find(0))
 		wg.Done()
 	}()
-	
+
 	wg.Wait()
 }

@@ -103,7 +103,7 @@ func (r *Reporter) Print() {
 	if len(r.Warnings) > 0 {
 		fmt.Println()
 		fmt.Println("============================================================")
-		fmt.Printf("MISSING ANNOTATION ADVISORY WARNINGS - %d warning(s)\n", len(r.Warnings))
+		fmt.Printf("ANNOTATION ADVISORY WARNINGS - %d warning(s)\n", len(r.Warnings))
 		fmt.Println("============================================================")
 		for _, d := range r.Warnings {
 			fmt.Printf("%s:%d:%d: %s\n", d.File, d.Line, d.Column, d.Message)

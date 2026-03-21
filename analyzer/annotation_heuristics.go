@@ -26,6 +26,12 @@ func detectLikelyMissingLockAnnotations(
 		return
 	}
 
+	// Synthetic SSA wrappers/thunks often lose source-level contract context and
+	// can duplicate lock effects, producing noisy missing-annotation advisories.
+	if fn.Synthetic != "" {
+		return
+	}
+
 	evidenceByLock := collectLockUsageEvidence(fn)
 	if len(evidenceByLock) == 0 {
 		return

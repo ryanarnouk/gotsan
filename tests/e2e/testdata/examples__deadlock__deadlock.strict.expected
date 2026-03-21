@@ -4,8 +4,3 @@ examples/deadlock/deadlock.go:104:57: Access to File.parent requires lock mu, bu
 examples/deadlock/deadlock.go:105:7: Access to Dir.files requires lock mu, but it's not held
 examples/deadlock/deadlock.go:107:2: Potential deadlock between goroutines: go process1 may reacquire mu while already held, and go process2 also acquires mu (other goroutine starts near line 108)
 examples/deadlock/deadlock.go:108:2: Potential deadlock between goroutines: go process2 may reacquire mu while already held, and go process1 also acquires mu (other goroutine starts near line 107)
-examples/deadlock/deadlock.go:27:30: Annotation @acquires(mu) could not be resolved to any variable — check spelling and receiver prefix
-examples/deadlock/deadlock.go:70:32: Annotation @acquires(mu) could not be resolved to any variable — check spelling and receiver prefix
-examples/deadlock/deadlock.go:81:18: Annotation @acquires(mu) could not be resolved to any variable — check spelling and receiver prefix
-examples/deadlock/deadlock.go:89:9: Annotation @acquires(mu) could not be resolved to any variable — check spelling and receiver prefix
-examples/deadlock/deadlock.go:96:9: Annotation @acquires(mu) could not be resolved to any variable — check spelling and receiver prefix

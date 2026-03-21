@@ -32,14 +32,16 @@ type DataInvariant struct {
 // Populated by AST Visitor and then consumed by the
 // SSA/CFG Analyzer to verify lock patterns
 type ContractRegistry struct {
-	Functions map[string]*FunctionContract
-	Data      map[string]*DataInvariant
+	Functions      map[string]*FunctionContract
+	FunctionsByPos map[token.Pos]*FunctionContract
+	Data           map[string]*DataInvariant
 }
 
 func NewContractRegistry() *ContractRegistry {
 	return &ContractRegistry{
-		Functions: make(map[string]*FunctionContract),
-		Data:      make(map[string]*DataInvariant),
+		Functions:      make(map[string]*FunctionContract),
+		FunctionsByPos: make(map[token.Pos]*FunctionContract),
+		Data:           make(map[string]*DataInvariant),
 	}
 }
 

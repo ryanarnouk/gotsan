@@ -41,6 +41,7 @@ type Type struct {
 	cond *sync.Cond
 }
 
+// @acquires(q.cond.L)
 func (q *Type) Get() {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
@@ -58,6 +59,7 @@ type ResourceQuotaController struct {
 }
 
 func (rq *ResourceQuotaController) worker(queue RateLimitingInterface, name string) func() {
+	// @acquires(rq.workerLock)
 	workFunc := func() bool {
 		rq.workerLock.RLock()
 		defer rq.workerLock.RUnlock()
@@ -78,6 +80,7 @@ func (rq *ResourceQuotaController) Run() {
 	go rq.worker(rq.missingUsageQueue, "G2")() // G2
 }
 
+// @acquires(rq.workerLock)
 func (rq *ResourceQuotaController) Sync() {
 	for i := 0; i < 100000; i++ {
 		rq.workerLock.Lock()
@@ -105,13 +108,13 @@ func startResourceQuotaController() {
 	resourceQuotaController.HelperSignals()
 }
 
-/// G1 						G2						G3
-/// ...						...						Sync()
-/// rq.workerLock.RLock()
-/// q.cond.Wait()
-/// 												rq.workerLock.Lock()
-/// 						rq.workerLock.RLock()
-///
+// / G1 						G2						G3
+// / ...						...						Sync()
+// / rq.workerLock.RLock()
+// / q.cond.Wait()
+// / 												rq.workerLock.Lock()
+// / 						rq.workerLock.RLock()
+// /
 func TestKubernetes58107(t *testing.T) {
 	startResourceQuotaController()
 }

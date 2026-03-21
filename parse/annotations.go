@@ -46,13 +46,18 @@ func parseAnnotation(annotation string) (Annotation, error) {
 	}
 
 	annotationName := strings.TrimSpace(annotation[:open])
+	kind, ok := ir.AnnotationKindMap[annotationName]
+	if !ok {
+		return Annotation{}, fmt.Errorf("unknown annotation name: %q", annotationName)
+	}
+
 	params := strings.Split(annotation[open+1:close], ",")
 	for i := range params {
 		params[i] = strings.TrimSpace(params[i])
 	}
 
 	return Annotation{
-		Kind:   ir.AnnotationKindMap[annotationName],
+		Kind:   kind,
 		Params: params,
 	}, nil
 }

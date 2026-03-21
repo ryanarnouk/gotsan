@@ -69,3 +69,10 @@ func TestParseAnnotation(t *testing.T) {
 		})
 	}
 }
+
+func TestParseAnnotationRejectsUnknownAnnotationName(t *testing.T) {
+	_, err := ParseAnnotation("//@acquire(mu)")
+	if err == nil {
+		t.Fatal("expected parse error for unknown annotation name")
+	}
+}
