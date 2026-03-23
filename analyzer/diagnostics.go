@@ -294,6 +294,50 @@ func reportLikelyMissingAnnotation(
 	})
 }
 
+func reportRecursiveCallMayReacquireLock(
+	callSite *ssa.Call,
+	callerFn *ssa.Function,
+	calleeFn *ssa.Function,
+	lockName string,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if callSite == nil {
+		return
+	}
+
+	callerName := "<unknown>"
+	if callerFn != nil {
+		callerName = callerFn.Name()
+	}
+
+	calleeName := "<unknown>"
+	if calleeFn != nil {
+		calleeName = calleeFn.Name()
+	}
+
+	if lockName == "" {
+		lockName = "<lock>"
+	}
+
+	message := "Heuristic: recursive call from " + callerName + " to " + calleeName +
+		" may reacquire lock " + lockName + " while it is already held"
+
+	if reporter == nil || fset == nil {
+		logger.Warnf(message)
+		return
+	}
+
+	position := fset.Position(callSite.Pos())
+	reporter.WarnHeuristic(report.Diagnostic{
+		Pos:     callSite.Pos(),
+		File:    position.Filename,
+		Line:    position.Line,
+		Column:  position.Column,
+		Message: message,
+	})
+}
+
 func reportGoroutineLockOrderInversion(
 	goA *ssa.Go,
 	goB *ssa.Go,

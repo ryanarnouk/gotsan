@@ -15,13 +15,14 @@ func analyzeInstructions(
 	contract *ir.FunctionContract,
 	state *AnalysisState,
 	registry *ir.ContractRegistry,
+	recursion *recursionGraph,
 	reporter *report.Reporter,
 	fset *token.FileSet,
 ) {
 	for _, instr := range instrs {
 		switch msg := instr.(type) {
 		case *ssa.Call:
-			handleCallInstruction(fn, msg, state, registry, reporter, fset)
+			handleCallInstruction(fn, msg, state, registry, recursion, reporter, fset)
 		case *ssa.Defer:
 			registerDeferInstruction(msg, state)
 		case *ssa.RunDefers:
@@ -129,10 +130,13 @@ func checkAcquiresExpectation(exp ir.Requirement, calleeFn *ssa.Function, callSi
 // the current lockset
 // fn is the callee function, this function is invoked from the caller
 func handleStaticCalleeFunction(calleeFn *ssa.Function, callSite *ssa.Call, registry *ir.ContractRegistry, state *AnalysisState, reporter *report.Reporter,
-	fset *token.FileSet) {
+	recursion *recursionGraph, fset *token.FileSet, callerFn *ssa.Function) {
 	if calleeFn == nil {
 		return
 	}
+
+	checkRecursiveCallLockReacquireHeuristic(callerFn, calleeFn, callSite, state, registry, recursion, reporter, fset)
+
 	contract := contractForFunction(calleeFn, registry)
 	if contract == nil {
 		return
@@ -154,6 +158,7 @@ func handleCallInstruction(
 	msg *ssa.Call,
 	state *AnalysisState,
 	registry *ir.ContractRegistry,
+	recursion *recursionGraph,
 	reporter *report.Reporter,
 	fset *token.FileSet,
 ) {
@@ -174,7 +179,7 @@ func handleCallInstruction(
 		}
 	} else {
 		callee := msg.Call.StaticCallee()
-		handleStaticCalleeFunction(callee, msg, registry, state, reporter, fset)
+		handleStaticCalleeFunction(callee, msg, registry, state, reporter, recursion, fset, fn)
 	}
 }
 

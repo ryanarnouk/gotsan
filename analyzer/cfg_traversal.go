@@ -38,6 +38,7 @@ func functionDepthFirstSearch(
 	registry *ir.ContractRegistry,
 	reporter *report.Reporter,
 	fset *token.FileSet,
+	recursion *recursionGraph,
 	strictMode bool,
 ) {
 	if len(fn.Blocks) == 0 {
@@ -76,7 +77,7 @@ func functionDepthFirstSearch(
 		entryState := blockEntryStates[curr.Index]
 		currentState := entryState.Copy()
 
-		analyzeInstructions(fn, curr.Instrs, contract, &currentState, registry, reporter, fset)
+		analyzeInstructions(fn, curr.Instrs, contract, &currentState, registry, recursion, reporter, fset)
 		if logger.IsVerbose() {
 			utils.PrintSSABlock(curr)
 		}

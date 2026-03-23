@@ -16,17 +16,18 @@ func analyzeFunction(
 	registry *ir.ContractRegistry,
 	reporter *report.Reporter,
 	fset *token.FileSet,
+	recursion *recursionGraph,
 	strictMode bool,
 ) {
 	if fn == nil || len(fn.Blocks) == 0 {
 		return
 	}
 
-	functionDepthFirstSearch(fn, registry, reporter, fset, strictMode)
+	functionDepthFirstSearch(fn, registry, reporter, fset, recursion, strictMode)
 
 	// Recurse through any anonymous functions
 	for _, anon := range fn.AnonFuncs {
-		analyzeFunction(anon, registry, reporter, fset, strictMode)
+		analyzeFunction(anon, registry, reporter, fset, recursion, strictMode)
 	}
 }
 
@@ -39,6 +40,7 @@ func findMethodsForType(
 	registry *ir.ContractRegistry,
 	reporter *report.Reporter,
 	fset *token.FileSet,
+	recursion *recursionGraph,
 	strictMode bool,
 ) {
 	// Check methods/interface implementing a type
@@ -47,7 +49,7 @@ func findMethodsForType(
 		selection := methodSet.At(i)
 		fn := pkg.Prog.MethodValue(selection)
 		if fn != nil && fn.Pkg == pkg {
-			analyzeFunction(fn, registry, reporter, fset, strictMode)
+			analyzeFunction(fn, registry, reporter, fset, recursion, strictMode)
 		}
 	}
 
@@ -55,20 +57,22 @@ func findMethodsForType(
 	ptrMset := pkg.Prog.MethodSets.MethodSet(types.NewPointer(t))
 	for i := range ptrMset.Len() {
 		if fn := pkg.Prog.MethodValue(ptrMset.At(i)); fn != nil && fn.Pkg == pkg {
-			analyzeFunction(fn, registry, reporter, fset, strictMode)
+			analyzeFunction(fn, registry, reporter, fset, recursion, strictMode)
 		}
 	}
 }
 
 func Run(pkg *ssa.Package, registry *ir.ContractRegistry, reporter *report.Reporter, fset *token.FileSet, strictMode bool) {
+	recursion := buildRecursionGraph(pkg)
+
 	for _, member := range pkg.Members {
 		switch n := member.(type) {
 		case *ssa.Function:
-			analyzeFunction(n, registry, reporter, fset, strictMode)
+			analyzeFunction(n, registry, reporter, fset, recursion, strictMode)
 		case *ssa.Type:
 			// Check if the type has any methods
 			// This appears when using an interface
-			findMethodsForType(pkg, n.Type(), registry, reporter, fset, strictMode)
+			findMethodsForType(pkg, n.Type(), registry, reporter, fset, recursion, strictMode)
 		}
 	}
 }
