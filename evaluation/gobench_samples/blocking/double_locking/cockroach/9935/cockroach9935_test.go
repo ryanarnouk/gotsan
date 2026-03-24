@@ -20,6 +20,7 @@ type loggingT struct {
 	mu sync.Mutex
 }
 
+// @acquires(l.mu)
 func (l *loggingT) outputLogEntry() {
 	l.mu.Lock()
 	if err := l.createFile(); err != nil {
@@ -33,6 +34,8 @@ func (l *loggingT) createFile() error {
 	}
 	return nil
 }
+
+// @acquires(l.mu)
 func (l *loggingT) exit(err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

@@ -45,11 +45,13 @@ func (c *httpClusterClient) SetEndpoints() {
 	}
 }
 
+// @acquires(c.RWMutex)
 func (c *httpClusterClient) Do(ctx context.Context) {
 	c.RLock() // block here
 	c.RUnlock()
 }
 
+// @acquires(c.RWMutex)
 func (c *httpClusterClient) Sync(ctx context.Context) {
 	c.Lock()
 	defer c.Unlock()

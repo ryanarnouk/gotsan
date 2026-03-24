@@ -15,6 +15,7 @@ type Client struct {
 	cancel context.CancelFunc
 }
 
+// @acquires(c.mu)
 func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -32,6 +33,8 @@ type remoteClient struct {
 	mu     sync.Mutex
 }
 
+// @acquires(r.client.mu)
+// @acquires(r.mu)
 func (r *remoteClient) acquire(ctx context.Context) error {
 	for {
 		r.client.mu.RLock()

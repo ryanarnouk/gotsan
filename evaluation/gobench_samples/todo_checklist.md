@@ -19,26 +19,34 @@ test=pass|untested|fail
 Locks are objects in a map which is only known dynamically at runtime. Hard to reason about this bug statically without resolving the lock values in the hash map.
 
 #### kubernetes
+
+Tried to annotate both of these, neither worked. Think there might be a bug.
+Seems like it needs to resolve some of the call graph possibility dynamically or use a call graph? 
+
 - [ ] 13135/kubernetes13135_test.go | test=untested
 - [ ] 30872/kubernetes30872_test.go | test=untested
 
 #### moby
-- [ ] 4951/moby4951_test.go | test=untested
+- [x] 4951/moby4951_test.go | test=pass
 
 ### double_locking
 
 #### cockroach
-- [ ] 584/cockroach584_test.go | test=untested
-- [ ] 9935/cockroach9935_test.go | test=untested
+- [x] 584/cockroach584_test.go | test=pass
+- [x] 9935/cockroach9935_test.go | test=pass
 
 #### etcd
-- [ ] 10492/etcd10492_test.go | test=untested
-- [ ] 5509/etcd5509_test.go | test=untested
-- [ ] 6708/etcd6708_test.go | test=untested
+- [x] 10492/etcd10492_test.go | test=pass
+
+Was not working at first due to the function that double locks 
+being called in a dynamic context. Added some code to apply heuristics to recognize dynamic function context calls and resolve, and now this seems to work. Not sure how generalizable this solution is.
+
+- [x] 5509/etcd5509_test.go | test=untested
+- [x] 6708/etcd6708_test.go | test=untested
 
 #### grpc
-- [ ] 3017/grpc3017_test.go | test=untested
-- [ ] 795/grpc795_test.go | test=untested
+- [x] 3017/grpc3017_test.go | test=untested
+- [x] 795/grpc795_test.go | test=untested
 
 #### hugo
 - [ ] 5379/hugo5379_test.go | test=untested
