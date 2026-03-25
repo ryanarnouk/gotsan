@@ -82,17 +82,20 @@ type federatedInformerImpl struct {
 	clusterInformer informer
 }
 
+// @acquires(f.Mutex)
 func (f *federatedInformerImpl) ClustersSynced() {
 	f.Lock()
 	defer f.Unlock()
 	f.clusterInformer.controller.HasSynced()
 }
 
+// @acquires(f.Mutex)
 func (f *federatedInformerImpl) addCluster() {
 	f.Lock()
 	defer f.Unlock()
 }
 
+// @acquires(f.Mutex)
 func (f *federatedInformerImpl) Start() {
 	f.Lock()
 	defer f.Unlock()
@@ -101,6 +104,7 @@ func (f *federatedInformerImpl) Start() {
 	go f.clusterInformer.controller.Run(f.clusterInformer.stopChan)
 }
 
+// @acquires(f.Mutex)
 func (f *federatedInformerImpl) Stop() {
 	f.Lock()
 	defer f.Unlock()
@@ -153,11 +157,13 @@ type DeltaFIFO struct {
 	lock sync.RWMutex
 }
 
+// @acquires(f.lock)
 func (f *DeltaFIFO) HasSynced() {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 }
 
+// @acquires(f.lock)
 func (f *DeltaFIFO) Pop(process PopProcessFunc) {
 	f.lock.Lock()
 	defer f.lock.Unlock()

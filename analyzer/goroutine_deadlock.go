@@ -54,7 +54,9 @@ func lockDisplayName(l lockRef) string {
 
 func sameLock(a lockRef, b lockRef) bool {
 	if a.Obj != nil && b.Obj != nil {
-		return a.Obj == b.Obj
+		if a.Obj == b.Obj {
+			return true
+		}
 	}
 	if a.Name != "" && b.Name != "" {
 		return a.Name == b.Name

@@ -55,6 +55,41 @@ func resolveParameterFromValue(v ssa.Value) *ssa.Parameter {
 		return resolveParameterFromValue(n.X)
 	case *ssa.UnOp:
 		return resolveParameterFromValue(n.X)
+	case *ssa.Alloc:
+		refs := n.Referrers()
+		if refs == nil {
+			return nil
+		}
+		for _, ref := range *refs {
+			store, ok := ref.(*ssa.Store)
+			if !ok {
+				continue
+			}
+			if param := resolveParameterFromValue(store.Val); param != nil {
+				return param
+			}
+		}
+	default:
+		return nil
+	}
+
+	return nil
+}
+
+func resolveFreeVarFromValue(v ssa.Value) *ssa.FreeVar {
+	if v == nil {
+		return nil
+	}
+
+	switch n := v.(type) {
+	case *ssa.FreeVar:
+		return n
+	case *ssa.ChangeType:
+		return resolveFreeVarFromValue(n.X)
+	case *ssa.ChangeInterface:
+		return resolveFreeVarFromValue(n.X)
+	case *ssa.UnOp:
+		return resolveFreeVarFromValue(n.X)
 	default:
 		return nil
 	}
@@ -311,6 +346,70 @@ func resolveParameterBindingMethodTargets(
 	return out
 }
 
+func resolveFreeVarBindingTargets(fn *ssa.Function, freeVar *ssa.FreeVar, pkg *ssa.Package) []*ssa.Function {
+	if fn == nil || freeVar == nil || pkg == nil {
+		return nil
+	}
+
+	idx := -1
+	for i, fv := range fn.FreeVars {
+		if fv == freeVar {
+			idx = i
+			break
+		}
+	}
+
+	if idx < 0 {
+		for i, fv := range fn.FreeVars {
+			if fv != nil && freeVar != nil && fv.Name() == freeVar.Name() {
+				idx = i
+				break
+			}
+		}
+	}
+
+	if idx < 0 {
+		return nil
+	}
+
+	seen := make(map[*ssa.Function]bool)
+	out := make([]*ssa.Function, 0)
+
+	for caller := range collectPackageFunctions(pkg) {
+		for _, block := range caller.Blocks {
+			for _, instr := range block.Instrs {
+				closure, ok := instr.(*ssa.MakeClosure)
+				if !ok || closure == nil {
+					continue
+				}
+
+				targetFn, _ := closure.Fn.(*ssa.Function)
+				if targetFn != fn {
+					continue
+				}
+
+				if idx >= len(closure.Bindings) {
+					continue
+				}
+
+				bound := closure.Bindings[idx]
+				target := resolveFunctionFromValue(bound)
+				if target != nil {
+					out = appendUniqueFunction(out, target, seen)
+				}
+
+				if param := resolveParameterFromValue(bound); param != nil {
+					for _, boundTarget := range resolveParameterBindingTargets(caller, param, pkg) {
+						out = appendUniqueFunction(out, boundTarget, seen)
+					}
+				}
+			}
+		}
+	}
+
+	return out
+}
+
 func resolveDynamicCallTargets(callerFn *ssa.Function, msg *ssa.Call) []*ssa.Function {
 	if callerFn == nil || msg == nil {
 		return nil
@@ -333,6 +432,12 @@ func resolveDynamicCallTargets(callerFn *ssa.Function, msg *ssa.Call) []*ssa.Fun
 				for _, bound := range resolveParameterBindingMethodTargets(callerFn, param, callerFn.Pkg, msg.Call.Method.Name()) {
 					targets = appendUniqueFunction(targets, bound, seen)
 				}
+			}
+		}
+
+		if freeVar := resolveFreeVarFromValue(msg.Call.Value); freeVar != nil {
+			for _, bound := range resolveFreeVarBindingTargets(callerFn, freeVar, callerFn.Pkg) {
+				targets = appendUniqueFunction(targets, bound, seen)
 			}
 		}
 	}
@@ -372,7 +477,7 @@ func resolveDynamicCallTargets(callerFn *ssa.Function, msg *ssa.Call) []*ssa.Fun
 					continue
 				}
 
-				if storeFieldAddr.X.Type().String() != fieldAddr.X.Type().String() {
+				if !types.Identical(storeFieldAddr.Type(), fieldAddr.Type()) {
 					continue
 				}
 

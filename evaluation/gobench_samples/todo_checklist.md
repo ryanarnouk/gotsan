@@ -20,11 +20,8 @@ Locks are objects in a map which is only known dynamically at runtime. Hard to r
 
 #### kubernetes
 
-Tried to annotate both of these, neither worked. Think there might be a bug.
-Seems like it needs to resolve some of the call graph possibility dynamically or use a call graph? 
-
-- [ ] 13135/kubernetes13135_test.go | test=untested
-- [ ] 30872/kubernetes30872_test.go | test=untested
+- [x] 13135/kubernetes13135_test.go | test=pass
+- [x] 30872/kubernetes30872_test.go | test=fail
 
 #### moby
 - [x] 4951/moby4951_test.go | test=pass
