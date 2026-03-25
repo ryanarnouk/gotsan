@@ -64,3 +64,13 @@ Regenerate expected snapshot files after intentional analyzer output changes:
 ```bash
 go test ./tests/e2e -run Expected -update
 ```
+
+Golden snapshot naming convention:
+
+- `*.lenient.expected`: expected findings for lenient mode (non-strict run)
+- `*.strict.expected`: expected findings for strict mode
+
+Example:
+
+- `tests/e2e/testdata/examples__simple__simple.lenient.expected`
+- `tests/e2e/testdata/examples__simple__simple.strict.expected`

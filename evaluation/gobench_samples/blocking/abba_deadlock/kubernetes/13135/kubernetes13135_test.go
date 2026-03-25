@@ -63,11 +63,14 @@ type Cacher struct {
 	reflector   *Reflector
 }
 
+// @acquires(c.Mutex)
 func (c *Cacher) processEvent() {
 	c.Lock()
 	defer c.Unlock()
 }
 
+// @acquires(c.Mutex)
+// @returns(c.Mutex)
 func (c *Cacher) startCaching(stopChannel <-chan struct{}) {
 	c.Lock()
 	for {
@@ -84,18 +87,21 @@ type WatchCache struct {
 	onEvent   func()
 }
 
+// @acquires(w.RWMutex)
 func (w *WatchCache) SetOnEvent(onEvent func()) {
 	w.Lock()
 	defer w.Unlock()
 	w.onEvent = onEvent
 }
 
+// @acquires(w.RWMutex)
 func (w *WatchCache) SetOnReplace(onReplace func()) {
 	w.Lock()
 	defer w.Unlock()
 	w.onReplace = onReplace
 }
 
+// @acquires(w.RWMutex)
 func (w *WatchCache) processEvent() {
 	w.Lock()
 	defer w.Unlock()
@@ -108,6 +114,7 @@ func (w *WatchCache) Add(obj interface{}) {
 	w.processEvent()
 }
 
+// @acquires(w.RWMutex)
 func (w *WatchCache) Replace(obj interface{}) {
 	w.Lock()
 	defer w.Unlock()
@@ -135,31 +142,31 @@ func NewCacher() *Cacher {
 	return cacher
 }
 
-///
-/// G1								G2								G3
-/// NewCacher()
-/// watchCache.SetOnReplace()
-/// watchCache.SetOnEvent()
-/// 								cacher.startCaching()
-///									c.Lock()
-/// 								c.reflector.ListAndWatch()
-/// 								r.syncWith()
-/// 								r.store.Replace()
-/// 								w.Lock()
-/// 								w.onReplace()
-/// 								cacher.initOnce.Do()
-/// 								cacher.Unlock()
-/// return cacher
-///																	c.watchCache.Add()
-///																	w.processEvent()
-///																	w.Lock()
-///									cacher.startCaching()
-///									c.Lock()
-///									...
-///																	c.Lock()
-///									w.Lock()
-///--------------------------------G2,G3 deadlock-------------------------------------
-///
+// /
+// / G1								G2								G3
+// / NewCacher()
+// / watchCache.SetOnReplace()
+// / watchCache.SetOnEvent()
+// / 								cacher.startCaching()
+// /									c.Lock()
+// / 								c.reflector.ListAndWatch()
+// / 								r.syncWith()
+// / 								r.store.Replace()
+// / 								w.Lock()
+// / 								w.onReplace()
+// / 								cacher.initOnce.Do()
+// / 								cacher.Unlock()
+// / return cacher
+// /																	c.watchCache.Add()
+// /																	w.processEvent()
+// /																	w.Lock()
+// /									cacher.startCaching()
+// /									c.Lock()
+// /									...
+// /																	c.Lock()
+// /									w.Lock()
+// /--------------------------------G2,G3 deadlock-------------------------------------
+// /
 func TestKubernetes13135(t *testing.T) {
 	StopChannel = make(chan struct{})
 	c := NewCacher()         // G1

@@ -143,6 +143,47 @@ func appendLockIfMissing(order []lockRef, lock lockRef) []lockRef {
 	return append(order, lock)
 }
 
+func resolveGoCallTargets(callerFn *ssa.Function, goInstr *ssa.Go) []*ssa.Function {
+	if callerFn == nil || goInstr == nil {
+		return nil
+	}
+
+	targets := make([]*ssa.Function, 0, 1)
+	seen := make(map[*ssa.Function]bool)
+
+	if staticCallee := goInstr.Call.StaticCallee(); staticCallee != nil {
+		targets = appendUniqueFunction(targets, staticCallee, seen)
+	}
+
+	if direct := resolveFunctionFromValue(goInstr.Call.Value); direct != nil {
+		targets = appendUniqueFunction(targets, direct, seen)
+	}
+
+	if callerFn.Pkg != nil {
+		if param := resolveParameterFromValue(goInstr.Call.Value); param != nil {
+			for _, bound := range resolveParameterBindingTargets(callerFn, param, callerFn.Pkg) {
+				targets = appendUniqueFunction(targets, bound, seen)
+			}
+
+			if goInstr.Call.Method != nil {
+				for _, bound := range resolveParameterBindingMethodTargets(callerFn, param, callerFn.Pkg, goInstr.Call.Method.Name()) {
+					targets = appendUniqueFunction(targets, bound, seen)
+				}
+			}
+		}
+	}
+
+	if goInstr.Call.Method != nil {
+		for _, recvType := range resolveConcreteTypesFromValue(goInstr.Call.Value) {
+			for _, target := range resolveMethodTargetsForType(callerFn.Pkg, recvType, goInstr.Call.Method.Name()) {
+				targets = appendUniqueFunction(targets, target, seen)
+			}
+		}
+	}
+
+	return targets
+}
+
 func collectTransitiveAcquireOrder(
 	callee *ssa.Function,
 	invocationArgs []ssa.Value,
@@ -179,43 +220,81 @@ func collectTransitiveAcquireOrder(
 				continue
 			}
 
-			nestedCallee := callInstr.Call.StaticCallee()
-			if nestedCallee == nil {
-				continue
+			targets := make([]*ssa.Function, 0, 1)
+			seenTargets := make(map[*ssa.Function]bool)
+			if nestedCallee := callInstr.Call.StaticCallee(); nestedCallee != nil {
+				targets = appendUniqueFunction(targets, nestedCallee, seenTargets)
+			} else {
+				for _, dynamicTarget := range resolveDynamicCallTargets(callee, callInstr) {
+					targets = appendUniqueFunction(targets, dynamicTarget, seenTargets)
+				}
 			}
 
-			nestedOrder := collectTransitiveAcquireOrder(nestedCallee, callInstr.Call.Args, registry, active)
-			order = append(order, nestedOrder...)
+			for _, target := range targets {
+				if target == nil {
+					continue
+				}
+
+				nestedOrder := collectTransitiveAcquireOrder(target, callInstr.Call.Args, registry, active)
+				order = append(order, nestedOrder...)
+			}
 		}
 	}
 
 	return order
 }
 
-func acquireOrderForGoSite(goInstr *ssa.Go, registry *ir.ContractRegistry) []lockRef {
-	if goInstr == nil || registry == nil {
+func acquireOrderForGoSite(callerFn *ssa.Function, goInstr *ssa.Go, registry *ir.ContractRegistry) []lockRef {
+	if callerFn == nil || goInstr == nil || registry == nil {
 		return nil
 	}
 
-	callee := goInstr.Call.StaticCallee()
-	if callee == nil {
+	targets := resolveGoCallTargets(callerFn, goInstr)
+	if len(targets) == 0 {
 		return nil
 	}
 
-	return collectTransitiveAcquireOrder(callee, goInstr.Call.Args, registry, map[*ssa.Function]bool{})
+	order := make([]lockRef, 0)
+	for _, callee := range targets {
+		if callee == nil {
+			continue
+		}
+		nested := collectTransitiveAcquireOrder(callee, goInstr.Call.Args, registry, map[*ssa.Function]bool{})
+		order = append(order, nested...)
+	}
+
+	return order
 }
 
-func acquireOrderForCallSite(callInstr *ssa.Call, registry *ir.ContractRegistry) []lockRef {
-	if callInstr == nil || registry == nil {
+func acquireOrderForCallSite(callerFn *ssa.Function, callInstr *ssa.Call, registry *ir.ContractRegistry) []lockRef {
+	if callerFn == nil || callInstr == nil || registry == nil {
 		return nil
 	}
 
-	callee := callInstr.Call.StaticCallee()
-	if callee == nil {
+	targets := make([]*ssa.Function, 0, 1)
+	seenTargets := make(map[*ssa.Function]bool)
+	if callee := callInstr.Call.StaticCallee(); callee != nil {
+		targets = appendUniqueFunction(targets, callee, seenTargets)
+	} else {
+		for _, dynamicTarget := range resolveDynamicCallTargets(callerFn, callInstr) {
+			targets = appendUniqueFunction(targets, dynamicTarget, seenTargets)
+		}
+	}
+
+	if len(targets) == 0 {
 		return nil
 	}
 
-	return collectTransitiveAcquireOrder(callee, callInstr.Call.Args, registry, map[*ssa.Function]bool{})
+	order := make([]lockRef, 0)
+	for _, callee := range targets {
+		if callee == nil {
+			continue
+		}
+		nested := collectTransitiveAcquireOrder(callee, callInstr.Call.Args, registry, map[*ssa.Function]bool{})
+		order = append(order, nested...)
+	}
+
+	return order
 }
 
 func detectGoroutineLockOrderInversions(
@@ -237,13 +316,12 @@ func detectGoroutineLockOrderInversions(
 			}
 
 			callee := goInstr.Call.StaticCallee()
-			if callee == nil {
-				continue
-			}
-
-			order := acquireOrderForGoSite(goInstr, registry)
+			order := acquireOrderForGoSite(fn, goInstr, registry)
 			if len(order) == 0 {
 				continue
+			}
+			if callee == nil {
+				callee = resolveFunctionFromValue(goInstr.Call.Value)
 			}
 
 			sites = append(sites, goroutineAcquireSite{
@@ -324,7 +402,7 @@ func detectSingleThreadedLockOrderInversions(
 				continue
 			}
 
-			order := acquireOrderForCallSite(callInstr, registry)
+			order := acquireOrderForCallSite(fn, callInstr, registry)
 			if len(order) < 2 {
 				continue
 			}
@@ -347,6 +425,95 @@ func detectSingleThreadedLockOrderInversions(
 			reportSingleThreadedLockOrderInversion(
 				sites[i].CallInstr,
 				sites[j].CallInstr,
+				sites[i].Callee,
+				sites[j].Callee,
+				lockDisplayName(firstLock),
+				lockDisplayName(secondLock),
+				reporter,
+				fset,
+			)
+		}
+	}
+}
+
+func detectPackageWideGoroutineLockOrderInversions(
+	pkg *ssa.Package,
+	registry *ir.ContractRegistry,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if pkg == nil || registry == nil {
+		return
+	}
+
+	sites := make([]goroutineAcquireSite, 0)
+	for fn := range collectPackageFunctions(pkg) {
+		if fn == nil || len(fn.Blocks) == 0 {
+			continue
+		}
+
+		for _, block := range fn.Blocks {
+			for _, instr := range block.Instrs {
+				goInstr, ok := instr.(*ssa.Go)
+				if !ok {
+					continue
+				}
+
+				order := acquireOrderForGoSite(fn, goInstr, registry)
+				if len(order) == 0 {
+					continue
+				}
+
+				callee := goInstr.Call.StaticCallee()
+				if callee == nil {
+					callee = resolveFunctionFromValue(goInstr.Call.Value)
+				}
+
+				sites = append(sites, goroutineAcquireSite{
+					GoInstr: goInstr,
+					Callee:  callee,
+					Order:   order,
+				})
+			}
+		}
+	}
+
+	for i := 0; i < len(sites); i++ {
+		for j := i + 1; j < len(sites); j++ {
+			repeatedLockA, repeatedA := firstRepeatedLock(sites[i].Order)
+			if repeatedA && containsLock(sites[j].Order, repeatedLockA) {
+				reportGoroutineRecursiveLockPotentialDeadlock(
+					sites[i].GoInstr,
+					sites[j].GoInstr,
+					sites[i].Callee,
+					sites[j].Callee,
+					lockDisplayName(repeatedLockA),
+					reporter,
+					fset,
+				)
+			}
+
+			repeatedLockB, repeatedB := firstRepeatedLock(sites[j].Order)
+			if repeatedB && containsLock(sites[i].Order, repeatedLockB) {
+				reportGoroutineRecursiveLockPotentialDeadlock(
+					sites[j].GoInstr,
+					sites[i].GoInstr,
+					sites[j].Callee,
+					sites[i].Callee,
+					lockDisplayName(repeatedLockB),
+					reporter,
+					fset,
+				)
+			}
+
+			firstLock, secondLock, found := findOrderInversion(sites[i].Order, sites[j].Order)
+			if !found {
+				continue
+			}
+
+			reportGoroutineLockOrderInversion(
+				sites[i].GoInstr,
+				sites[j].GoInstr,
 				sites[i].Callee,
 				sites[j].Callee,
 				lockDisplayName(firstLock),

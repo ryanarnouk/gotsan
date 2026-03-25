@@ -48,18 +48,26 @@ func buildRecursionGraph(pkg *ssa.Package) *recursionGraph {
 					continue
 				}
 
-				callee := callInstr.Call.StaticCallee()
-				if callee == nil {
-					continue
+				targets := make([]*ssa.Function, 0, 1)
+				if callee := callInstr.Call.StaticCallee(); callee != nil {
+					targets = append(targets, callee)
+				} else {
+					targets = append(targets, resolveDynamicCallTargets(fn, callInstr)...)
 				}
 
-				if _, ok := functions[callee]; !ok {
-					continue
-				}
+				for _, target := range targets {
+					if target == nil {
+						continue
+					}
 
-				adj[fn] = append(adj[fn], callee)
-				if fn == callee {
-					graph.selfRecursive[fn] = true
+					if _, ok := functions[target]; !ok {
+						continue
+					}
+
+					adj[fn] = append(adj[fn], target)
+					if fn == target {
+						graph.selfRecursive[fn] = true
+					}
 				}
 			}
 		}
@@ -272,13 +280,17 @@ func collectTransitiveLockUsageEvidence(
 				continue
 			}
 
-			nestedCallee := callInstr.Call.StaticCallee()
-			if nestedCallee == nil {
-				continue
+			targets := make([]*ssa.Function, 0, 1)
+			if nestedCallee := callInstr.Call.StaticCallee(); nestedCallee != nil {
+				targets = append(targets, nestedCallee)
+			} else {
+				targets = append(targets, resolveDynamicCallTargets(fn, callInstr)...)
 			}
 
-			nestedEvidence := collectTransitiveLockUsageEvidence(nestedCallee, active)
-			mergeLockUsageEvidence(evidenceByLock, nestedEvidence)
+			for _, target := range targets {
+				nestedEvidence := collectTransitiveLockUsageEvidence(target, active)
+				mergeLockUsageEvidence(evidenceByLock, nestedEvidence)
+			}
 		}
 	}
 
