@@ -22,6 +22,7 @@ type lbCacheClientConn struct {
 	subConnToAddr map[SubConn]Address
 }
 
+// @acquires(ccc.mu)
 func (ccc *lbCacheClientConn) NewSubConn(addrs []Address) SubConn {
 	if len(addrs) != 1 {
 		return SubConn(1)
@@ -39,6 +40,7 @@ func (ccc *lbCacheClientConn) NewSubConn(addrs []Address) SubConn {
 	return scNew
 }
 
+// @acquires(ccc.mu)
 func (ccc *lbCacheClientConn) RemoveSubConn(sc SubConn) {
 	ccc.mu.Lock()
 	defer ccc.mu.Unlock()

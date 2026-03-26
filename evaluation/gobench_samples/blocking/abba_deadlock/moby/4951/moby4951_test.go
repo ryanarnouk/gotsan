@@ -24,6 +24,8 @@ type DeviceSet struct {
 	nrDeletedDevices int
 }
 
+// @acquires(devices.Mutex)
+// @acquires(info.lock)
 func (devices *DeviceSet) DeleteDevice(hash string) {
 	devices.Lock()
 	defer devices.Unlock()
@@ -48,6 +50,9 @@ func (devices *DeviceSet) deleteDevice(info *DevInfo) {
 	devices.removeDeviceAndWait(info.Name())
 }
 
+// @requires(devices.Mutex)
+// @acquires(devices.Mutex)
+// @returns(devices.Mutex)
 func (devices *DeviceSet) removeDeviceAndWait(devname string) {
 	/// remove devices by devname
 	devices.Unlock()

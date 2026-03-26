@@ -15,11 +15,13 @@ type lessor struct {
 	checkpointInterval time.Duration
 }
 
+// @acquires(le.mu)
 func (le *lessor) Checkpoint() {
 	le.mu.Lock() // block here
 	defer le.mu.Unlock()
 }
 
+// @acquires(le.mu)
 func (le *lessor) SetCheckpointer(cp Checkpointer) {
 	le.mu.Lock()
 	defer le.mu.Unlock()
@@ -27,9 +29,12 @@ func (le *lessor) SetCheckpointer(cp Checkpointer) {
 	le.cp = cp
 }
 
+// @acquires(le.mu)
 func (le *lessor) Renew() {
 	le.mu.Lock()
-	unlock := func() { le.mu.Unlock() }
+	unlock := func() {
+		le.mu.Unlock()
+	}
 	defer func() { unlock() }()
 
 	if le.cp != nil {

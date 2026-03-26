@@ -75,4 +75,10 @@ func Run(pkg *ssa.Package, registry *ir.ContractRegistry, reporter *report.Repor
 			findMethodsForType(pkg, n.Type(), registry, reporter, fset, recursion, strictMode)
 		}
 	}
+
+	if strictMode {
+		// Strict mode also checks lock-order inversions across goroutine launches
+		// that occur in different functions throughout the package.
+		detectPackageWideGoroutineLockOrderInversions(pkg, registry, reporter, fset)
+	}
 }

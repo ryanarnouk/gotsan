@@ -60,6 +60,7 @@ func (p *Page) initContentPlainAndMeta() {
 	p.initPlain(true)
 }
 
+// @acquires(p.contentInitMu)
 func (p *Page) initPlain(lock bool) {
 	p.plainInit.Do(func() {
 		if lock {

@@ -10,6 +10,7 @@ type Server struct {
 	drain bool
 }
 
+// @acquires(s.mu)
 func (s *Server) GracefulStop() {
 	s.mu.Lock()
 	if s.drain == true {
@@ -19,6 +20,7 @@ func (s *Server) GracefulStop() {
 	s.drain = true
 } // Missing Unlock
 
+// @acquires(s.mu)
 func (s *Server) Serve() {
 	s.mu.Lock()
 	s.mu.Unlock()

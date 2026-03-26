@@ -10,6 +10,7 @@ type Gossip struct {
 	closed bool
 }
 
+// @acquires(g.mu)
 func (g *Gossip) bootstrap() {
 	for {
 		g.mu.Lock()
@@ -22,6 +23,7 @@ func (g *Gossip) bootstrap() {
 	}
 }
 
+// @acquires(g.mu)
 func (g *Gossip) manage() {
 	for {
 		g.mu.Lock()

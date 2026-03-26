@@ -2,6 +2,7 @@ package analyzer
 
 import (
 	"go/token"
+	"go/types"
 	"gotsan/ir"
 	"gotsan/utils/report"
 
@@ -40,6 +41,144 @@ func analyzeInstructions(
 			checkReturnPath(fn, msg, contract, state, reporter, fset)
 		}
 	}
+}
+
+func mergeLockSet(dst LockSet, src LockSet) {
+	for obj := range src {
+		dst[obj] = true
+	}
+}
+
+func collectFunctionLockEffects(fn *ssa.Function, seen map[*ssa.Function]bool) (LockSet, LockSet) {
+	locks := make(LockSet)
+	unlocks := make(LockSet)
+	if fn == nil {
+		return locks, unlocks
+	}
+
+	if seen[fn] {
+		return locks, unlocks
+	}
+	seen[fn] = true
+
+	for _, block := range fn.Blocks {
+		for _, instr := range block.Instrs {
+			callInstr, ok := instr.(*ssa.Call)
+			if !ok {
+				continue
+			}
+
+			if isLockCall(callInstr) {
+				if obj := getLockObject(callInstr); obj != nil {
+					locks[obj] = true
+				}
+				continue
+			}
+
+			if isUnlockCall(callInstr) {
+				if obj := getLockObject(callInstr); obj != nil {
+					unlocks[obj] = true
+				}
+				continue
+			}
+
+			if callee := callInstr.Call.StaticCallee(); callee != nil {
+				nestedLocks, nestedUnlocks := collectFunctionLockEffects(callee, seen)
+				mergeLockSet(locks, nestedLocks)
+				mergeLockSet(unlocks, nestedUnlocks)
+				continue
+			}
+
+			if nested := resolveFunctionFromValue(callInstr.Call.Value); nested != nil {
+				nestedLocks, nestedUnlocks := collectFunctionLockEffects(nested, seen)
+				mergeLockSet(locks, nestedLocks)
+				mergeLockSet(unlocks, nestedUnlocks)
+				continue
+			}
+
+			for _, target := range resolveDynamicCallTargets(fn, callInstr) {
+				if target == nil {
+					continue
+				}
+				nestedLocks, nestedUnlocks := collectFunctionLockEffects(target, seen)
+				mergeLockSet(locks, nestedLocks)
+				mergeLockSet(unlocks, nestedUnlocks)
+			}
+		}
+	}
+
+	return locks, unlocks
+}
+
+func collectDeferredCallLockEffects(common *ssa.CallCommon) (LockSet, LockSet) {
+	locks := make(LockSet)
+	unlocks := make(LockSet)
+	if common == nil {
+		return locks, unlocks
+	}
+
+	if isLockCallCommon(common) {
+		if obj := getLockObjectFromCallCommon(common); obj != nil {
+			locks[obj] = true
+		}
+		return locks, unlocks
+	}
+
+	if isUnlockCallCommon(common) {
+		if obj := getLockObjectFromCallCommon(common); obj != nil {
+			unlocks[obj] = true
+		}
+		return locks, unlocks
+	}
+
+	seen := make(map[*ssa.Function]bool)
+
+	if callee := common.StaticCallee(); callee != nil {
+		nestedLocks, nestedUnlocks := collectFunctionLockEffects(callee, seen)
+		mergeLockSet(locks, nestedLocks)
+		mergeLockSet(unlocks, nestedUnlocks)
+	}
+
+	if dynamic := resolveFunctionFromValue(common.Value); dynamic != nil {
+		nestedLocks, nestedUnlocks := collectFunctionLockEffects(dynamic, seen)
+		mergeLockSet(locks, nestedLocks)
+		mergeLockSet(unlocks, nestedUnlocks)
+	}
+
+	if closure, ok := common.Value.(*ssa.MakeClosure); ok {
+		for _, binding := range closure.Bindings {
+			boundFn := resolveFunctionFromValue(binding)
+			if boundFn == nil {
+				continue
+			}
+			nestedLocks, nestedUnlocks := collectFunctionLockEffects(boundFn, seen)
+			mergeLockSet(locks, nestedLocks)
+			mergeLockSet(unlocks, nestedUnlocks)
+		}
+	}
+
+	return locks, unlocks
+}
+
+func isHeldLockEquivalent(heldLocks LockSet, candidate types.Object) bool {
+	if candidate == nil || len(heldLocks) == 0 {
+		return false
+	}
+
+	if heldLocks[candidate] {
+		return true
+	}
+
+	for heldObj := range heldLocks {
+		if heldObj == nil {
+			continue
+		}
+		if heldObj.Name() == candidate.Name() {
+			return true
+		}
+	}
+
+	return false
 }
 
 func checkReturnPath(
@@ -179,7 +318,59 @@ func handleCallInstruction(
 		}
 	} else {
 		callee := msg.Call.StaticCallee()
-		handleStaticCalleeFunction(callee, msg, registry, state, reporter, recursion, fset, fn)
+		if callee != nil {
+			handleStaticCalleeFunction(callee, msg, registry, state, reporter, recursion, fset, fn)
+
+			contract := contractForFunction(callee, registry)
+			hasExplicitAcquires := contract != nil && len(contract.Expectations[ir.Acquires]) > 0
+
+			if len(state.HeldLocks) > 0 && !hasExplicitAcquires {
+				acquiredLocks, _ := collectFunctionLockEffects(callee, make(map[*ssa.Function]bool))
+				for obj := range acquiredLocks {
+					if obj == nil || !isHeldLockEquivalent(state.HeldLocks, obj) {
+						continue
+					}
+					reportAlreadyAcquiredLock(msg, callee, obj.Name(), reporter, fset)
+				}
+			}
+
+			return
+		}
+
+		targets := resolveDynamicCallTargets(fn, msg)
+		if len(targets) == 0 {
+			reportDynamicCallbackWhileHoldingLocks(msg, fn, state.HeldLocks, reporter, fset)
+			return
+		}
+
+		reportedReacquire := false
+		for _, target := range targets {
+			if target == nil {
+				continue
+			}
+
+			handleStaticCalleeFunction(target, msg, registry, state, reporter, recursion, fset, fn)
+
+			contract := contractForFunction(target, registry)
+			hasExplicitAcquires := contract != nil && len(contract.Expectations[ir.Acquires]) > 0
+			if hasExplicitAcquires {
+				continue
+			}
+
+			acquiredLocks, _ := collectFunctionLockEffects(target, make(map[*ssa.Function]bool))
+			for obj := range acquiredLocks {
+				if obj == nil || !isHeldLockEquivalent(state.HeldLocks, obj) {
+					continue
+				}
+
+				reportAlreadyAcquiredLock(msg, target, obj.Name(), reporter, fset)
+				reportedReacquire = true
+			}
+		}
+
+		if !reportedReacquire {
+			reportDynamicCallbackWhileHoldingLocks(msg, fn, state.HeldLocks, reporter, fset)
+		}
 	}
 }
 
@@ -207,15 +398,11 @@ func applyDeferredEffects(state *AnalysisState) {
 // Add deferred statements to the state, such that they are later run when the function
 // is being returned (or when ssa.RunDefers exists in the SSA)
 func registerDeferInstruction(msg *ssa.Defer, state *AnalysisState) {
-	if isLockCallCommon(&msg.Call) {
-		obj := getLockObjectFromCallCommon(&msg.Call)
-		if obj != nil {
-			state.DeferredLocks[obj] = true
-		}
-	} else if isUnlockCallCommon(&msg.Call) {
-		obj := getLockObjectFromCallCommon(&msg.Call)
-		if obj != nil {
-			state.DeferredUnlocks[obj] = true
-		}
+	deferredLocks, deferredUnlocks := collectDeferredCallLockEffects(&msg.Call)
+	for obj := range deferredLocks {
+		state.DeferredLocks[obj] = true
+	}
+	for obj := range deferredUnlocks {
+		state.DeferredUnlocks[obj] = true
 	}
 }

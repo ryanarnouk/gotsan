@@ -1,0 +1,5 @@
+examples/recursive_mutex/recursive_mutex.go:18:5: Call to C acquires lock Mutex, but it is already held
+examples/recursive_mutex/recursive_mutex.go:20:1: Function A must return with lock s.Mutex held
+examples/recursive_mutex/recursive_mutex.go:27:1: Function B must return with lock s.Mutex held
+examples/recursive_mutex/recursive_mutex.go:36:5: Call to B acquires lock s.Mutex, but it is already held
+examples/recursive_mutex/recursive_mutex.go:37:5: Call to C acquires lock Mutex, but it is already held

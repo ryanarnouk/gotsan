@@ -27,7 +27,7 @@ import (
 // This makes examples executable documentation and a stable conformance suite.
 var update = flag.Bool("update", false, "update expected snapshot files")
 
-func TestExamples_DefaultMode_ExpectedFindings(t *testing.T) {
+func TestExamples_LenientMode_ExpectedFindings(t *testing.T) {
 	runExpectedSuite(t, false)
 }
 
@@ -49,7 +49,7 @@ func runExpectedSuite(t *testing.T, strict bool) {
 
 		name := strings.TrimSuffix(relPath, ".go")
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
-		mode := "default"
+		mode := "lenient"
 		if strict {
 			mode = "strict"
 		}

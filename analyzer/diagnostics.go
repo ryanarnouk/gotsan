@@ -134,6 +134,54 @@ func reportReacquiredLock(
 	})
 }
 
+func reportDynamicCallbackWhileHoldingLocks(
+	msg *ssa.Call,
+	fn *ssa.Function,
+	heldLocks LockSet,
+	reporter *report.Reporter,
+	fset *token.FileSet,
+) {
+	if msg == nil || len(heldLocks) == 0 {
+		return
+	}
+
+	fnName := "<unknown>"
+	if fn != nil {
+		fnName = fn.Name()
+	}
+
+	lockNames := make([]string, 0, len(heldLocks))
+	for obj := range heldLocks {
+		if obj == nil {
+			continue
+		}
+		lockNames = append(lockNames, obj.Name())
+	}
+	sort.Strings(lockNames)
+
+	locks := "<lock>"
+	if len(lockNames) > 0 {
+		locks = strings.Join(lockNames, ", ")
+	}
+
+	message := "Heuristic: function " + fnName + " invokes a dynamic callback while holding lock(s) " + locks +
+		"; callback may reacquire these locks and deadlock"
+
+	if reporter == nil || fset == nil {
+		logger.Warnf(message)
+		return
+	}
+
+	position := fset.Position(msg.Pos())
+	reporter.WarnHeuristic(report.Diagnostic{
+		Pos:     msg.Pos(),
+		File:    position.Filename,
+		Line:    position.Line,
+		Column:  position.Column,
+		Message: message,
+	})
+}
+
 func reportReturnMissingLock(
 	fn *ssa.Function,
 	instr ssa.Instruction,

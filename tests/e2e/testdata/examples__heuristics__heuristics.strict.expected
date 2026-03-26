@@ -3,5 +3,6 @@ examples/heuristics/heuristics.go:108:5: Access to Account.balance requires lock
 examples/heuristics/heuristics.go:119:3: Function WithdrawWithAliasingLock returns lock(s) mu but no @returns(...) contract is declared
 examples/heuristics/heuristics.go:123:1: Function WithdrawWithAliasingLock returns lock(s) mu but no @returns(...) contract is declared
 examples/heuristics/heuristics.go:38:4: Access to Account.balance requires lock mu, but it's not held
+examples/heuristics/heuristics.go:62:18: Call to helperFunction acquires lock mu, but it is already held
 examples/heuristics/heuristics.go:82:2: Function DepositAndHold returns lock(s) mu but no @returns(...) contract is declared
 examples/heuristics/heuristics.go:95:11: Access to Account.balance requires lock mu, but it's not held
