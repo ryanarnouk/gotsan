@@ -25,6 +25,8 @@ type rangeDescriptorCache struct {
 	rangeCacheMu sync.RWMutex
 }
 
+// @acquires(rdc.rangeCacheMu)
+// @returns(rdc.rangeCacheMu)
 func (rdc *rangeDescriptorCache) LookupRangeDescriptor() {
 	rdc.rangeCacheMu.RLock()
 	fmt.Printf("lookup range descriptor: %s", rdc)
@@ -33,12 +35,15 @@ func (rdc *rangeDescriptorCache) LookupRangeDescriptor() {
 	rdc.rangeCacheMu.Unlock()
 }
 
+// @acquires(rdc.rangeCacheMu)
 func (rdc *rangeDescriptorCache) String() string {
 	rdc.rangeCacheMu.RLock()
 	defer rdc.rangeCacheMu.RUnlock()
 	return rdc.stringLocked()
 }
 
+// @requires(rdc.rangeCacheMu)
+// @returns(rdc.rangeCacheMu)
 func (rdc *rangeDescriptorCache) stringLocked() string {
 	return "something here"
 }

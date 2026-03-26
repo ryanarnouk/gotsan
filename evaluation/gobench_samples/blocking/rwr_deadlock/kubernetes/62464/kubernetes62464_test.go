@@ -29,6 +29,7 @@ type stateMemory struct {
 	sync.RWMutex
 }
 
+// @acquires(s.RWMutex)
 func (s *stateMemory) GetCPUSetOrDefault() {
 	s.RLock()
 	defer s.RUnlock()
@@ -38,6 +39,7 @@ func (s *stateMemory) GetCPUSetOrDefault() {
 	s.GetDefaultCPUSet()
 }
 
+// @acquires(s.RWMutex)
 func (s *stateMemory) GetCPUSet() bool {
 	s.RLock()
 	defer s.RUnlock()
@@ -48,11 +50,13 @@ func (s *stateMemory) GetCPUSet() bool {
 	return false
 }
 
+// @acquires(s.RWMutex)
 func (s *stateMemory) GetDefaultCPUSet() {
 	s.RLock()
 	defer s.RUnlock()
 }
 
+// @acquires(s.RWMutex)
 func (s *stateMemory) SetDefaultCPUSet() {
 	s.Lock()
 	defer s.Unlock()
@@ -80,19 +84,19 @@ func NewPolicyAndManager() (*staticPolicy, *manager) {
 	return p, m
 }
 
-///
-/// G1 									G2
-/// m.reconcileState()
-/// m.state.GetCPUSetOrDefault()
-/// s.RLock()
-/// s.GetCPUSet()
-/// 									p.RemoveContainer()
-/// 									s.GetDefaultCPUSet()
-/// 									s.SetDefaultCPUSet()
-/// 									s.Lock()
-/// s.RLock()
-/// ---------------------G1,G2 deadlock---------------------
-///
+// /
+// / G1 									G2
+// / m.reconcileState()
+// / m.state.GetCPUSetOrDefault()
+// / s.RLock()
+// / s.GetCPUSet()
+// / 									p.RemoveContainer()
+// / 									s.GetDefaultCPUSet()
+// / 									s.SetDefaultCPUSet()
+// / 									s.Lock()
+// / s.RLock()
+// / ---------------------G1,G2 deadlock---------------------
+// /
 func TestKubernetes62464(t *testing.T) {
 	p, m := NewPolicyAndManager()
 	go m.reconcileState()

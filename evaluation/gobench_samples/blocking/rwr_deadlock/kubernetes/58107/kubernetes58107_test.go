@@ -58,8 +58,8 @@ type ResourceQuotaController struct {
 	missingUsageQueue RateLimitingInterface
 }
 
+// @acquires(rq.workerLock)
 func (rq *ResourceQuotaController) worker(queue RateLimitingInterface, name string) func() {
-	// @acquires(rq.workerLock)
 	workFunc := func() bool {
 		rq.workerLock.RLock()
 		defer rq.workerLock.RUnlock()
@@ -81,6 +81,7 @@ func (rq *ResourceQuotaController) Run() {
 }
 
 // @acquires(rq.workerLock)
+// @returns(rq.workerLock)
 func (rq *ResourceQuotaController) Sync() {
 	for i := 0; i < 100000; i++ {
 		rq.workerLock.Lock()

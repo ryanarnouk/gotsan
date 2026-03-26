@@ -34,6 +34,8 @@ type Session struct {
 	PreparedStatements PreparedStatements
 }
 
+// @requires(e.systemConfigMu)
+// @returns(e.systemConfigMu)
 func (s *Session) resetForBatch(e *Executor) {
 	e.getDatabaseCache()
 }
@@ -47,34 +49,49 @@ func (e *Executor) Start() {
 	e.updateSystemConfig()
 }
 
+// @acquires(e.systemConfigMu)
 func (e *Executor) execParsed(session *Session) {
 	e.systemConfigCond.L.Lock() // Same as e.systemConfigMu.RLock()
 	defer e.systemConfigCond.L.Unlock()
 	runTxnAttempt(e, session)
 }
 
+// @requires(e.systemConfigMu)
+// @returns(e.systemConfigMu)
+// @acquires(e.systemConfigMu)
 func (e *Executor) execStmtsInCurrentTxn(session *Session) {
 	e.execStmtInOpenTxn(session)
 }
 
+// @requires(e.systemConfigMu)
+// @returns(e.systemConfigMu)
+// @acquires(e.systemConfigMu)
 func (e *Executor) execStmtInOpenTxn(session *Session) {
 	session.PreparedStatements.New(e)
 }
 
+// @requires(e.systemConfigMu)
+// @returns(e.systemConfigMu)
+// @acquires(e.systemConfigMu)
 func (e *Executor) Prepare(session *Session) {
 	session.resetForBatch(e)
 }
 
+// @acquires(e.systemConfigMu)
 func (e *Executor) getDatabaseCache() {
 	e.systemConfigMu.RLock()
 	defer e.systemConfigMu.RUnlock()
 }
 
+// @acquires(e.systemConfigMu)
 func (e *Executor) updateSystemConfig() {
 	e.systemConfigMu.Lock() // Block here
 	defer e.systemConfigMu.Unlock()
 }
 
+// @requires(e.systemConfigMu)
+// @returns(e.systemConfigMu)
+// @acquires(e.systemConfigMu)
 func runTxnAttempt(e *Executor, session *Session) {
 	e.execStmtsInCurrentTxn(session)
 }
@@ -86,14 +103,14 @@ func NewExectorAndSession() (*Executor, *Session) {
 	return e, session
 }
 
-/// G1 							G2
-/// e.Start()
-/// e.updateSystemConfig()
-/// 							e.execParsed()
-/// 							e.systemConfigCond.L.Lock()
-/// e.systemConfigMu.Lock()
-/// 							e.systemConfigMu.RLock()
-/// ----------------------G1,G2 deadlock--------------------
+// / G1 							G2
+// / e.Start()
+// / e.updateSystemConfig()
+// / 							e.execParsed()
+// / 							e.systemConfigCond.L.Lock()
+// / e.systemConfigMu.Lock()
+// / 							e.systemConfigMu.RLock()
+// / ----------------------G1,G2 deadlock--------------------
 func TestCockroach16167(t *testing.T) {
 	e, s := NewExectorAndSession()
 	e.systemConfigCond = sync.NewCond(e.systemConfigMu.RLocker())

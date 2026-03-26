@@ -54,13 +54,13 @@ Locks are objects in a map which is only known dynamically at runtime. Hard to r
 ### rwr_deadlock
 
 #### cockroach
-- [ ] 16167/cockroach16167_test.go | test=untested
-- [ ] 3710/cockroach3710_test.go | test=untested
-- [ ] 6181/cockroach6181_test.go | test=untested
+- [x] 16167/cockroach16167_test.go | test=pass
+- [x] 3710/cockroach3710_test.go | test=pass
+- [x] 6181/cockroach6181_test.go | test=fail
 
 #### kubernetes
-- [ ] 58107/kubernetes58107_test.go | test=untested
-- [ ] 62464/kubernetes62464_test.go | test=untested
+- [x] 58107/kubernetes58107_test.go | test=pass
+- [x] 62464/kubernetes62464_test.go | test=pass
 
 ## nonblocking
 

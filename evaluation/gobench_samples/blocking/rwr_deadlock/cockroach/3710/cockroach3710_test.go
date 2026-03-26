@@ -26,6 +26,8 @@ type Store struct {
 	}
 }
 
+// @acquires(s.mu)
+// @returns(s.mu)
 func (s *Store) ForceRaftLogScanAndProcess() {
 	s.mu.RLock()
 	for _, r := range s.replicas {
@@ -34,11 +36,14 @@ func (s *Store) ForceRaftLogScanAndProcess() {
 	s.mu.RUnlock()
 }
 
+// @acquires(s.mu)
 func (s *Store) RaftStatus() {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 }
 
+// @acquires(s.mu)
+// @returns(s.mu)
 func (s *Store) processRaft() {
 	go func() {
 		for {
@@ -62,6 +67,9 @@ type baseQueue struct {
 	impl *raftLogQueue
 }
 
+// @requires(repl.store.mu)
+// @returns(repl.store.mu)
+// @acquires(repl.store.mu)
 func (bq *baseQueue) MaybeAdd(repl *Replica) {
 	bq.Lock()
 	defer bq.Unlock()
@@ -70,10 +78,12 @@ func (bq *baseQueue) MaybeAdd(repl *Replica) {
 
 type raftLogQueue struct{}
 
+// @requires(r.store.mu)
 func (*raftLogQueue) shouldQueue(r *Replica) {
 	getTruncatableIndexes(r)
 }
 
+// @requires(r.store.mu)
 func getTruncatableIndexes(r *Replica) {
 	r.store.RaftStatus()
 }
@@ -97,17 +107,17 @@ func NewStore() *Store {
 	return store
 }
 
-/// G1 										G2
-/// store.ForceRaftLogScanAndProcess()
-/// s.mu.RLock()
-/// s.raftLogQueue.MaybeAdd()
-/// bq.impl.shouldQueue()
-/// getTruncatableIndexes()
-/// r.store.RaftStatus()
-/// 										store.processRaft()
-/// 										s.mu.Lock()
-/// s.mu.RLock()
-/// ----------------------G1,G2 deadlock---------------------
+// / G1 										G2
+// / store.ForceRaftLogScanAndProcess()
+// / s.mu.RLock()
+// / s.raftLogQueue.MaybeAdd()
+// / bq.impl.shouldQueue()
+// / getTruncatableIndexes()
+// / r.store.RaftStatus()
+// / 										store.processRaft()
+// / 										s.mu.Lock()
+// / s.mu.RLock()
+// / ----------------------G1,G2 deadlock---------------------
 func TestCockroach3710(t *testing.T) {
 	store := NewStore()
 	go store.ForceRaftLogScanAndProcess() // G1
