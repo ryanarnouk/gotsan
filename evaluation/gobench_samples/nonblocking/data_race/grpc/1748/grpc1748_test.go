@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// @guarded_by(balanceMutex)
 var minConnectTimeout = 10 * time.Second
 
 var balanceMutex sync.Mutex // We add this for avoiding other data race
@@ -103,6 +104,7 @@ type ccBalancerWrapper struct {
 	balancer Balancer
 }
 
+// @acquires(balanceMutex)
 func (ccb *ccBalancerWrapper) watcher() {
 	for i := 0; i < 10; i++ {
 		balanceMutex.Lock()
@@ -115,6 +117,7 @@ func (ccb *ccBalancerWrapper) watcher() {
 	}
 }
 
+// @acquires(acbw.ac.mu)
 func (ccb *ccBalancerWrapper) NewSubConn() SubConn {
 	ac := ccb.cc.newAddrConn()
 	acbw := &acBalancerWrapper{ac: ac}
@@ -124,6 +127,7 @@ func (ccb *ccBalancerWrapper) NewSubConn() SubConn {
 	return acbw
 }
 
+// @acquires(balanceMutex)
 func newCCBalancerWrapper(cc *ClientConn, b Builder) {
 	ccb := &ccBalancerWrapper{cc: cc}
 	go ccb.watcher()

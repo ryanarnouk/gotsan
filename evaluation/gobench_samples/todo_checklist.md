@@ -1,7 +1,5 @@
 # Gobench Annotation Checklist
 
-Updated: 2026-03-21T00:42:06.744525Z
-
 Legend: [x] annotated, [ ] needs annotation.
 test=pass|untested|fail
 
@@ -38,12 +36,12 @@ Locks are objects in a map which is only known dynamically at runtime. Hard to r
 Was not working at first due to the function that double locks 
 being called in a dynamic context. Added some code to apply heuristics to recognize dynamic function context calls and resolve, and now this seems to work. Not sure how generalizable this solution is.
 
-- [x] 5509/etcd5509_test.go | test=untested
-- [x] 6708/etcd6708_test.go | test=untested
+- [x] 5509/etcd5509_test.go | test=pass
+- [x] 6708/etcd6708_test.go | test=pass
 
 #### grpc
-- [x] 3017/grpc3017_test.go | test=untested
-- [x] 795/grpc795_test.go | test=untested
+- [x] 3017/grpc3017_test.go | test=pass
+- [x] 795/grpc795_test.go | test=pass
 
 #### hugo
 - [ ] 5379/hugo5379_test.go | test=untested
@@ -72,12 +70,23 @@ being called in a dynamic context. Added some code to apply heuristics to recogn
 ### data_race
 
 #### etcd
-- [ ] 4876/etcd4876_test.go | test=untested
-- [ ] 8194/etcd8194_test.go | test=untested
-- [ ] 9446/etcd9446_test.go | test=untested
+- [x] 4876/etcd4876_test.go | test=fail
+
+Not a mutex
+
+- [x] 8194/etcd8194_test.go | test=untested
+
+Not a mutex
+
+- [x] 9446/etcd9446_test.go | test=untested
+
+Not a  mutex
 
 #### grpc
-- [ ] 1748/grpc1748_test.go | test=untested
+- [x] 1748/grpc1748_test.go | test=fail
+
+A mutex can probably be added (with a `guarded_by` tag, to detect this data race), but I am not sure if a mutex is the right away to approach this situation. Seems more like a logic issue that our tool wouldn't detect unless the authors had the intention to define a lock to protect the `minConnectTimeout` global variable.
+
 - [ ] 3090/grpc3090_test.go | test=untested
 
 #### istio
