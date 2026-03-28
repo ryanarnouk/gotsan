@@ -87,12 +87,17 @@ Not a  mutex
 
 A mutex can probably be added (with a `guarded_by` tag, to detect this data race), but I am not sure if a mutex is the right away to approach this situation. Seems more like a logic issue that our tool wouldn't detect unless the authors had the intention to define a lock to protect the `minConnectTimeout` global variable.
 
-- [ ] 3090/grpc3090_test.go | test=untested
+- [x] 3090/grpc3090_test.go | test=fail
 
 #### istio
-- [ ] 16742/istio16742_test.go | test=untested
-- [ ] 8144/istio8144_test.go | test=untested
-- [ ] 8214/istio8214_test.go | test=untested
+- [x] 16742/istio16742_test.go | test=fail
+- [x] 8144/istio8144_test.go | test=fail
+
+Not a mutex
+
+- [x] 8214/istio8214_test.go | test=fail
+
+Not a mutex
 
 #### kubernetes
 - [x] 49404/kubernetes49404_test.go | test=fail
@@ -113,12 +118,26 @@ Also required the addition of `mu` (of type Sync.Mutex) on the Authenticator str
 
 Added the guarded_by flag and adding the lock/unlock in the corresponding location changed the data race to pass when run through the `-race` flag.
 
-- [ ] 81091/kubernetes81091_test.go | test=untested
-- [ ] 81148/kubernetes81148_test.go | test=untested
-- [ ] 82239/kubernetes82239_test.go | test=untested
-- [ ] 82550/kubernetes82550_test.go | test=untested
-- [ ] 88331/kubernetes88331_test.go | test=untested
-- [ ] 89164/kubernetes89164_test.go | test=untested
+- [x] 81091/kubernetes81091_test.go | test=fail
+
+Not a mutex
+
+- [x] 81148/kubernetes81148_test.go | test=pass
+
+Interesting example, because there is a WaitGroup but also a Mutex that is guarded a property that workers in the WaitGroup accesses. Good example of a mix.
+
+- [x] 82239/kubernetes82239_test.go | test=fail
+
+No mutex
+
+- [x] 82550/kubernetes82550_test.go | test=pass
+
+Had to add a mutex (with a guarded_by tag) to note the locations where the unguarded access occurred to fix the error.
+
+Required the additon of the lock not initially accounted for.
+
+- [x] 88331/kubernetes88331_test.go | test=pass
+- [x] 89164/kubernetes89164_test.go | test=pass
 
 #### serving
 - [x] 3148/serving3148_test.go | test=fail

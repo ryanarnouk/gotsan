@@ -37,11 +37,13 @@ func newUnschedulablePodsMap() *UnschedulablePodsMap {
 }
 
 type PriorityQueue struct {
-	stop           <-chan struct{}
-	lock           sync.RWMutex
+	stop <-chan struct{}
+	lock sync.RWMutex
+	// @guarded_by(lock)
 	unschedulableQ *UnschedulablePodsMap
 }
 
+// @acquires(p.lock)
 func (p *PriorityQueue) flushUnschedulableQLeftover() {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -102,12 +104,14 @@ func Until(f func(), stopCh <-chan struct{}) {
 	JitterUntil(f, stopCh)
 }
 
+// @acquires(p.lock)
 func addOrUpdateUnschedulablePod(p *PriorityQueue, pod Pod) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	p.unschedulableQ.addOrUpdate(p.newPodInfo(pod))
 }
 
+// @acquires(p.lock)
 func TestKubernetes81148(t *testing.T) {
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
@@ -117,7 +121,9 @@ func TestKubernetes81148(t *testing.T) {
 		q := NewPriorityQueue(stop)
 		highPod := Pod("1")
 		addOrUpdateUnschedulablePod(q, highPod)
+		// q.lock.Lock()
 		q.unschedulableQ.podInfoMap[GetPodFullName(highPod)].Timestamp = time.Now().Add(-1 * unschedulableQTimeInterval)
+		// q.lock.Unlock()
 	}()
 	wg.Wait()
 	close(stop)

@@ -44,12 +44,14 @@ func NewWithRecorder() *Heap {
 }
 
 type PriorityQueue struct {
-	stop        chan struct{}
-	lock        sync.RWMutex
+	stop chan struct{}
+	lock sync.RWMutex
+	// @guarded_by(lock)
 	podBackoffQ *Heap
 	activeQ     *Heap
 }
 
+// @acquires(p.lock)
 func (p *PriorityQueue) flushBackoffQCompleted() {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -108,7 +110,9 @@ func TestKubernetes88331(t *testing.T) {
 	go func() {
 		wg.Done()
 		p := createAndRunPriorityQueue()
+		// p.lock.Lock()
 		p.podBackoffQ.Len()
+		// p.lock.Unlock()
 	}()
 	wg.Wait()
 }

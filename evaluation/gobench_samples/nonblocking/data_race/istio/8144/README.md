@@ -1,4 +1,3 @@
-
 # GoKer
 
 | Bug ID|  Ref | Patch | Type | SubType | SubsubType |

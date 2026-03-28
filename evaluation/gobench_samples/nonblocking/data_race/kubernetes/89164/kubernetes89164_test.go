@@ -9,9 +9,32 @@ type cacheWatcher int
 
 type Cacher struct {
 	sync.RWMutex
+	// @guarded_by(RWMutex)
 	watcherBuffer []*cacheWatcher
 }
 
+// FIXED VERSION OF THE CODE:
+// --------------------------
+// // @requires(c.RWMutex)
+// // @returns(c.RWMutex)
+// func (c *Cacher) startDispatching() {
+// 	// c.Lock()
+// 	// defer c.Unlock()
+//
+// 	c.watcherBuffer = c.watcherBuffer[:0]
+// }
+
+// // @acquires(c.RWMutex)
+// func (c *Cacher) dispatchEvent() {
+// 	c.Lock()
+// 	c.startDispatching()
+//
+// 	for _ = range c.watcherBuffer {
+// 	}
+// 	c.Unlock()
+// }
+
+// @acquires(c.RWMutex)
 func (c *Cacher) startDispatching() {
 	c.Lock()
 	defer c.Unlock()

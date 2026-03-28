@@ -6,7 +6,8 @@ import (
 )
 
 var (
-	adsClients      = map[string]*XdsConnection{}
+	adsClients = map[string]*XdsConnection{}
+	// @guarded_by(adsClientsMutex)
 	adsClientsMutex sync.RWMutex
 )
 
@@ -46,6 +47,7 @@ type DiscoveryServer struct {
 	ConfigGenerator ConfigGenerator
 }
 
+// @acquires(adsClientsMutex)
 func (s *DiscoveryServer) addCon(con *XdsConnection) {
 	adsClientsMutex.Lock()
 	defer adsClientsMutex.Unlock()
@@ -66,6 +68,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection) {
 	s.generateRawRoutes(con)
 }
 
+// @acquires(adsClientsMutex)
 func (s *DiscoveryServer) WorkloadUpdate() {
 	adsClientsMutex.RLock()
 	for _, connection := range adsClients {

@@ -1,6 +1,7 @@
 package kubernetes82550
 
 import (
+	"sync"
 	"testing"
 )
 
@@ -17,10 +18,15 @@ func (d *CachingDockerConfigProvider) Provide() DockerConfig {
 }
 
 type lazyEcrProvider struct {
+	mu sync.Mutex
+	// @guarded_by(mu)
 	actualProvider *CachingDockerConfigProvider
 }
 
 func (p *lazyEcrProvider) LazyProvide() *DockerConfigEntry {
+	// p.mu.Lock()
+	// defer p.mu.Unlock()
+
 	if p.actualProvider == nil {
 		p.actualProvider = &CachingDockerConfigProvider{}
 	}

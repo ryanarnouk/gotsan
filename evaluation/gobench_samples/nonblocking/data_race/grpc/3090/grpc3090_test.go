@@ -37,12 +37,14 @@ type ccResolverWrapper struct {
 	mu       sync.Mutex
 }
 
+// @acquires(ccr.mu)
 func (ccr *ccResolverWrapper) resolveNow() {
 	ccr.mu.Lock()
 	ccr.resolver.ResolveNow()
 	ccr.mu.Unlock()
 }
 
+// @acquires(ccr.mu)
 func (ccr *ccResolverWrapper) poll() {
 	ccr.mu.Lock()
 	defer ccr.mu.Unlock()
