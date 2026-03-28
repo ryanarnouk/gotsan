@@ -110,6 +110,38 @@ func collectFunctionLockEffects(fn *ssa.Function, seen map[*ssa.Function]bool) (
 	return locks, unlocks
 }
 
+func collectDirectFunctionLockEffects(fn *ssa.Function) (LockSet, LockSet) {
+	locks := make(LockSet)
+	unlocks := make(LockSet)
+	if fn == nil {
+		return locks, unlocks
+	}
+
+	for _, block := range fn.Blocks {
+		for _, instr := range block.Instrs {
+			callInstr, ok := instr.(*ssa.Call)
+			if !ok {
+				continue
+			}
+
+			if isLockCall(callInstr) {
+				if obj := getLockObject(callInstr); obj != nil {
+					locks[obj] = true
+				}
+				continue
+			}
+
+			if isUnlockCall(callInstr) {
+				if obj := getLockObject(callInstr); obj != nil {
+					unlocks[obj] = true
+				}
+			}
+		}
+	}
+
+	return locks, unlocks
+}
+
 func collectDeferredCallLockEffects(common *ssa.CallCommon) (LockSet, LockSet) {
 	locks := make(LockSet)
 	unlocks := make(LockSet)
@@ -181,6 +213,30 @@ func isHeldLockEquivalent(heldLocks LockSet, candidate types.Object) bool {
 	return false
 }
 
+func applyReleasedRequiresEffects(state *AnalysisState, callSite *ssa.Call, requires []ir.Requirement, released LockSet) {
+	if state == nil || callSite == nil || len(requires) == 0 || len(released) == 0 {
+		return
+	}
+
+	for _, exp := range requires {
+		requiredLockObject := resolveObjectAtCallSite(callSite, exp.Target)
+		if requiredLockObject == nil {
+			continue
+		}
+
+		if !state.HeldLocks[requiredLockObject] {
+			continue
+		}
+
+		if !isHeldLockEquivalent(released, requiredLockObject) {
+			continue
+		}
+
+		delete(state.HeldLocks, requiredLockObject)
+		delete(state.MayHeldLocks, requiredLockObject)
+	}
+}
+
 func checkReturnPath(
 	fn *ssa.Function,
 	ret *ssa.Return,
@@ -219,7 +275,7 @@ func checkReturnsExpectation(
 		return
 	}
 
-	if !state.HeldLocks[requiredLockObject] {
+	if !isHeldLockEquivalent(state.HeldLocks, requiredLockObject) {
 		reportReturnMissingLock(fn, ret, exp.Target, reporter, fset)
 	}
 }
@@ -322,10 +378,16 @@ func handleCallInstruction(
 			handleStaticCalleeFunction(callee, msg, registry, state, reporter, recursion, fset, fn)
 
 			contract := contractForFunction(callee, registry)
+			requires := []ir.Requirement(nil)
+			if contract != nil {
+				requires = contract.Expectations[ir.Requires]
+			}
 			hasExplicitAcquires := contract != nil && len(contract.Expectations[ir.Acquires]) > 0
+			acquiredLocks, _ := collectFunctionLockEffects(callee, make(map[*ssa.Function]bool))
+			_, directReleasedLocks := collectDirectFunctionLockEffects(callee)
+			applyReleasedRequiresEffects(state, msg, requires, directReleasedLocks)
 
 			if len(state.HeldLocks) > 0 && !hasExplicitAcquires {
-				acquiredLocks, _ := collectFunctionLockEffects(callee, make(map[*ssa.Function]bool))
 				for obj := range acquiredLocks {
 					if obj == nil || !isHeldLockEquivalent(state.HeldLocks, obj) {
 						continue

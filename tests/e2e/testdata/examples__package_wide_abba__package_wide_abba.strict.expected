@@ -1,1 +1,1 @@
-examples/package_wide_abba/package_wide_abba.go:29:2: Potential deadlock between goroutines: go lockAB acquires muA before muB, while go lockBA acquires muB before muA (other goroutine starts near line 33)
+examples/package_wide_abba/package_wide_abba.go:33:2: Potential deadlock between goroutines: go lockBA acquires muB before muA, while go lockAB acquires muA before muB (other goroutine starts near line 29)
