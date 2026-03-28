@@ -13,6 +13,7 @@ type Mapping struct {
 	extAddresses map[string]Address
 }
 
+// @acquires(m.mut)
 func (m *Mapping) clearAddresses() {
 	m.mut.Lock() // First locking
 	var removed []Address
@@ -26,6 +27,7 @@ func (m *Mapping) clearAddresses() {
 	m.mut.Unlock()
 }
 
+// @acquires(m.mut)
 func (m *Mapping) notify(added, remove []Address) {
 	m.mut.RLock() // Second locking
 	m.mut.RUnlock()
@@ -37,6 +39,7 @@ type Service struct {
 	mappings []*Mapping
 }
 
+// @acquires(s.mut)
 func (s *Service) NewMapping() *Mapping {
 	mapping := &Mapping{
 		extAddresses: make(map[string]Address),
@@ -47,6 +50,7 @@ func (s *Service) NewMapping() *Mapping {
 	return mapping
 }
 
+// @acquires(s.mut)
 func (s *Service) RemoveMapping(mapping *Mapping) {
 	s.mut.Lock()
 	defer s.mut.Unlock()

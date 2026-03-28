@@ -17,6 +17,7 @@ type UDPProxy struct {
 	connTrackLock sync.Mutex
 }
 
+// @acquires(proxy.connTrackLock)
 func (proxy *UDPProxy) Run() {
 	for i := 0; i < 2; i++ {
 		proxy.connTrackLock.Lock()

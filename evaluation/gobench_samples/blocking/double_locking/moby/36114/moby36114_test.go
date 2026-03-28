@@ -20,12 +20,14 @@ type serviceVM struct {
 	sync.Mutex
 }
 
+// @acquires(svm.Mutex)
 func (svm *serviceVM) hotAddVHDsAtStart() {
 	svm.Lock()
 	defer svm.Unlock()
 	svm.hotRemoveVHDsAtStart()
 }
 
+// @acquires(svm.Mutex)
 func (svm *serviceVM) hotRemoveVHDsAtStart() {
 	svm.Lock() // Double lock here
 	defer svm.Unlock()

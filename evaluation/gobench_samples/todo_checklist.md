@@ -44,15 +44,15 @@ being called in a dynamic context. Added some code to apply heuristics to recogn
 - [x] 795/grpc795_test.go | test=pass
 
 #### hugo
-- [ ] 5379/hugo5379_test.go | test=untested
+- [x] 5379/hugo5379_test.go | test=fail
 
 #### moby
 - [x] 17176/moby17176_test.go | test=pass
-- [ ] 36114/moby36114_test.go | test=untested
-- [ ] 7559/moby7559_test.go | test=untested
+- [x] 36114/moby36114_test.go | test=pass
+- [x] 7559/moby7559_test.go | test=pass
 
 #### syncthing
-- [ ] 4829/syncthing4829_test.go | test=untested
+- [x] 4829/syncthing4829_test.go | test=pass
 
 ### rwr_deadlock
 

@@ -77,6 +77,7 @@ func (p *Page) withoutContent() *PageWithoutContent {
 	return p.pageWithoutContent
 }
 
+// @requires(p.contentInitMu)
 func (p *Page) prepareForRender() error {
 	var err error
 	if err = handleShortcodes(p.withoutContent()); err != nil {
@@ -89,6 +90,7 @@ func (p *Page) setContentInit() {
 	p.shortcodeState.updateDelta()
 }
 
+// @acquires(p.contentInitMu)
 func (p *Page) initContent() {
 	p.contentInit.Do(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
