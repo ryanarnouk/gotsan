@@ -65,14 +65,12 @@ func (e *Executor) execStmtsInCurrentTxn(session *Session) {
 
 // @requires(e.systemConfigMu)
 // @returns(e.systemConfigMu)
-// @acquires(e.systemConfigMu)
 func (e *Executor) execStmtInOpenTxn(session *Session) {
 	session.PreparedStatements.New(e)
 }
 
 // @requires(e.systemConfigMu)
 // @returns(e.systemConfigMu)
-// @acquires(e.systemConfigMu)
 func (e *Executor) Prepare(session *Session) {
 	session.resetForBatch(e)
 }
@@ -91,7 +89,6 @@ func (e *Executor) updateSystemConfig() {
 
 // @requires(e.systemConfigMu)
 // @returns(e.systemConfigMu)
-// @acquires(e.systemConfigMu)
 func runTxnAttempt(e *Executor, session *Session) {
 	e.execStmtsInCurrentTxn(session)
 }

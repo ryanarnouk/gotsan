@@ -46,6 +46,7 @@ func (devices *DeviceSet) lookupDevice(hash string) *DevInfo {
 	return existing
 }
 
+// @requires(devices.Mutex)
 func (devices *DeviceSet) deleteDevice(info *DevInfo) {
 	devices.removeDeviceAndWait(info.Name())
 }

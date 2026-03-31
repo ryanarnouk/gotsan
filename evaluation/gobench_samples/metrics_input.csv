@@ -1,0 +1,7 @@
+scope,tp,fn,untested,fp
+blocking/abba_deadlock,4,2,0,
+blocking/double_locking,11,1,0,
+blocking/rwr_deadlock,4,1,0,
+nonblocking/data_race,7,11,2,
+blocking (all),19,4,0,
+all categories combined,26,15,2,

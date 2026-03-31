@@ -81,7 +81,6 @@ func (rq *ResourceQuotaController) Run() {
 }
 
 // @acquires(rq.workerLock)
-// @returns(rq.workerLock)
 func (rq *ResourceQuotaController) Sync() {
 	for i := 0; i < 100000; i++ {
 		rq.workerLock.Lock()

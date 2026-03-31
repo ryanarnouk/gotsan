@@ -15,7 +15,7 @@ func buildTestSSAPackageFromFile(t *testing.T, absPath string) *ssa.Package {
 	t.Helper()
 
 	fset := token.NewFileSet()
-	cfg := &packages.Config{Mode: packages.LoadSyntax, Fset: fset}
+	cfg := &packages.Config{Mode: packages.LoadSyntax, Fset: fset, Tests: true}
 	pkgs, err := packages.Load(cfg, absPath)
 	if err != nil {
 		t.Fatalf("packages.Load failed: %v", err)
@@ -30,11 +30,27 @@ func buildTestSSAPackageFromFile(t *testing.T, absPath string) *ssa.Package {
 	prog, ssaPkgs := ssautil.Packages(pkgs, ssa.BuilderMode(0))
 	prog.Build()
 
-	if len(ssaPkgs) == 0 || ssaPkgs[0] == nil {
+	if len(ssaPkgs) == 0 {
 		t.Fatalf("failed to build SSA package for %s", absPath)
 	}
 
-	return ssaPkgs[0]
+	var best *ssa.Package
+	bestMembers := -1
+	for _, ssaPkg := range ssaPkgs {
+		if ssaPkg == nil {
+			continue
+		}
+		if count := len(ssaPkg.Members); count > bestMembers {
+			bestMembers = count
+			best = ssaPkg
+		}
+	}
+	if best != nil {
+		return best
+	}
+
+	t.Fatalf("no non-nil SSA package built for %s", absPath)
+	return nil
 }
 
 func mustRepoRoot(t *testing.T) string {
@@ -56,7 +72,13 @@ func mustRepoRoot(t *testing.T) string {
 func dynamicDispatchFixturePath(t *testing.T) string {
 	t.Helper()
 
-	return filepath.Join(mustRepoRoot(t), "tests", "testdata", "dynamicdispatch", "dynamic_dispatch.go")
+	return filepath.Join(mustRepoRoot(t), "tests", "testdata", "dynamic_dispatch")
+}
+
+func serving3148FixturePath(t *testing.T) string {
+	t.Helper()
+
+	return filepath.Join(mustRepoRoot(t), "evaluation", "gobench_samples", "nonblocking", "data_race", "serving", "3148")
 }
 
 func findFunctionByName(pkg *ssa.Package, name string) *ssa.Function {
@@ -169,5 +191,33 @@ func TestBuildRecursionGraph_UsesDynamicTargets(t *testing.T) {
 
 	if !graph.isRecursiveEdge(target, caller) {
 		t.Fatal("expected recursiveDriver->dynamicTrampoline to be recursive via dynamic target edge")
+	}
+}
+
+func TestCollectDeferredCallLockEffects_Serving3148_NoStackOverflow(t *testing.T) {
+	pkg := buildTestSSAPackageFromFile(t, serving3148FixturePath(t))
+	runFn := findFunctionByName(pkg, "Run")
+	if runFn == nil {
+		t.Fatal("expected Run method in serving3148 fixture")
+	}
+
+	foundDefer := false
+	for _, block := range runFn.Blocks {
+		for _, instr := range block.Instrs {
+			deferInstr, ok := instr.(*ssa.Defer)
+			if !ok {
+				continue
+			}
+
+			foundDefer = true
+			locks, unlocks := collectDeferredCallLockEffects(&deferInstr.Call)
+			if locks == nil || unlocks == nil {
+				t.Fatal("expected non-nil lock effect sets")
+			}
+		}
+	}
+
+	if !foundDefer {
+		t.Fatal("expected at least one defer instruction in Run")
 	}
 }

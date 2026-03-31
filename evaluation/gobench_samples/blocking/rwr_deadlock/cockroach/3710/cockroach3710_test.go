@@ -27,7 +27,6 @@ type Store struct {
 }
 
 // @acquires(s.mu)
-// @returns(s.mu)
 func (s *Store) ForceRaftLogScanAndProcess() {
 	s.mu.RLock()
 	for _, r := range s.replicas {
@@ -43,7 +42,6 @@ func (s *Store) RaftStatus() {
 }
 
 // @acquires(s.mu)
-// @returns(s.mu)
 func (s *Store) processRaft() {
 	go func() {
 		for {

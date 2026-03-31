@@ -1,0 +1,549 @@
+
+============================================================
+[all 1/43] blocking/abba_deadlock/cockroach/10214/cockroach10214_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/abba_deadlock/cockroach/10214/cockroach10214_test.go:113:2: Potential deadlock between goroutines: go TestCockroach10214$1 acquires coalescedMu before raftMu, while go TestCockroach10214$2 acquires raftMu before coalescedMu (other goroutine starts near line 117)
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 1 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/abba_deadlock/cockroach/10214/cockroach10214_test.go:33:21: Heuristic: function sendQueuedHeartbeats invokes a dynamic callback while holding lock(s) Mutex; callback may reacquire these locks and deadlock
+============================================================
+-- exit code: 0
+
+============================================================
+[all 2/43] blocking/abba_deadlock/cockroach/7504/cockroach7504_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 3 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/abba_deadlock/cockroach/7504/cockroach7504_test.go:64:15: Call to removeLease acquires lock mu, but it is already held
+evaluation/gobench_samples/blocking/abba_deadlock/cockroach/7504/cockroach7504_test.go:172:2: Potential deadlock between goroutines: go TestCockroach7504$1 acquires mu before mu, while go TestCockroach7504$2 acquires mu before mu (other goroutine starts near line 179)
+evaluation/gobench_samples/blocking/abba_deadlock/cockroach/7504/cockroach7504_test.go:179:2: Potential deadlock between goroutines: go TestCockroach7504$2 may reacquire mu while already held, and go TestCockroach7504$1 also acquires mu (other goroutine starts near line 172)
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 3 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/abba_deadlock/cockroach/7504/cockroach7504_test.go:106:9: Heuristic: function remove invokes a dynamic callback while holding lock(s) mu; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/abba_deadlock/cockroach/7504/cockroach7504_test.go:119:18: Annotation @acquires(lease.mu) is not checkable at call sites because its root is local to get
+evaluation/gobench_samples/blocking/abba_deadlock/cockroach/7504/cockroach7504_test.go:132:11: Annotation @acquires(s.mu) is not checkable at call sites because its root is local to release
+============================================================
+-- exit code: 0
+
+============================================================
+[all 3/43] blocking/abba_deadlock/hugo/3251/hugo3251_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/abba_deadlock/hugo/3251/hugo3251_test.go:42:2: Function resGetRemote returns lock(s) RWMutex but no @returns(...) contract is declared
+============================================================
+-- exit code: 0
+
+============================================================
+[all 4/43] blocking/abba_deadlock/kubernetes/13135/kubernetes13135_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/abba_deadlock/kubernetes/13135/kubernetes13135_test.go:140:2: Potential deadlock between goroutines: go Util acquires Mutex before RWMutex, while go Add acquires RWMutex before Mutex (other goroutine starts near line 173)
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 4 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/abba_deadlock/kubernetes/13135/kubernetes13135_test.go:55:17: Annotation @acquires(w.RWMutex) is not checkable in this context - check spelling and resolver prefix
+evaluation/gobench_samples/blocking/abba_deadlock/kubernetes/13135/kubernetes13135_test.go:109:12: Heuristic: function processEvent invokes a dynamic callback while holding lock(s) RWMutex; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/abba_deadlock/kubernetes/13135/kubernetes13135_test.go:122:14: Heuristic: function Replace invokes a dynamic callback while holding lock(s) RWMutex; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/abba_deadlock/kubernetes/13135/kubernetes13135_test.go:136:16: Heuristic: function NewCacher$1 manipulates lock Mutex and may be missing @requires(Mutex)
+============================================================
+-- exit code: 0
+
+============================================================
+[all 5/43] blocking/abba_deadlock/kubernetes/30872/kubernetes30872_test.go
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 3 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/abba_deadlock/kubernetes/30872/kubernetes30872_test.go:89:40: Heuristic: function ClustersSynced invokes a dynamic callback while holding lock(s) Mutex; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/abba_deadlock/kubernetes/30872/kubernetes30872_test.go:111:7: Heuristic: function Stop invokes a dynamic callback while holding lock(s) Mutex; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/abba_deadlock/kubernetes/30872/kubernetes30872_test.go:170:9: Heuristic: function Pop invokes a dynamic callback while holding lock(s) lock; callback may reacquire these locks and deadlock
+============================================================
+-- exit code: 0
+
+============================================================
+[all 6/43] blocking/abba_deadlock/moby/4951/moby4951_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 5 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/abba_deadlock/moby/4951/moby4951_test.go:38:22: Call to deleteDevice acquires lock Mutex, but it is already held
+evaluation/gobench_samples/blocking/abba_deadlock/moby/4951/moby4951_test.go:51:29: Call to removeDeviceAndWait acquires lock devices.Mutex, but it is already held
+evaluation/gobench_samples/blocking/abba_deadlock/moby/4951/moby4951_test.go:92:2: Potential deadlock between goroutines: go DeleteDevice acquires lock before Mutex, while go DeleteDevice acquires Mutex before lock (other goroutine starts near line 93)
+evaluation/gobench_samples/blocking/abba_deadlock/moby/4951/moby4951_test.go:92:2: Potential deadlock between goroutines: go DeleteDevice may reacquire Mutex while already held, and go DeleteDevice also acquires Mutex (other goroutine starts near line 93)
+evaluation/gobench_samples/blocking/abba_deadlock/moby/4951/moby4951_test.go:93:2: Potential deadlock between goroutines: go DeleteDevice may reacquire Mutex while already held, and go DeleteDevice also acquires Mutex (other goroutine starts near line 92)
+============================================================
+-- exit code: 0
+
+============================================================
+[all 7/43] blocking/double_locking/cockroach/584/cockroach584_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 2 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/cockroach/584/cockroach584_test.go:24:1: Function bootstrap returns lock(s) mu but no @returns(...) contract is declared
+evaluation/gobench_samples/blocking/double_locking/cockroach/584/cockroach584_test.go:37:1: Function manage returns lock(s) mu but no @returns(...) contract is declared
+============================================================
+-- exit code: 0
+
+============================================================
+[all 8/43] blocking/double_locking/cockroach/9935/cockroach9935_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/cockroach/9935/cockroach9935_test.go:27:9: Call to exit acquires lock l.mu, but it is already held
+============================================================
+-- exit code: 0
+
+============================================================
+[all 9/43] blocking/double_locking/etcd/10492/etcd10492_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/etcd/10492/etcd10492_test.go:41:8: Call to TestEtcd10492$1 acquires lock mu, but it is already held
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 2 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/etcd/10492/etcd10492_test.go:36:15: Heuristic: function Renew$1 manipulates lock mu and may be missing @requires(mu)
+evaluation/gobench_samples/blocking/double_locking/etcd/10492/etcd10492_test.go:52:12: Heuristic: function TestEtcd10492 manipulates lock mu and may be missing @acquires(mu)
+============================================================
+-- exit code: 0
+
+============================================================
+[all 10/43] blocking/double_locking/etcd/5509/etcd5509_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/etcd/5509/etcd5509_test.go:45:4: Function acquire returns lock(s) mu but no @returns(...) contract is declared
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 1 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/etcd/5509/etcd5509_test.go:25:10: Heuristic: function Close invokes a dynamic callback while holding lock(s) mu; callback may reacquire these locks and deadlock
+============================================================
+-- exit code: 0
+
+============================================================
+[all 11/43] blocking/double_locking/etcd/6708/etcd6708_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/etcd/6708/etcd6708_test.go:59:16: Call to SetEndpoints acquires lock RWMutex, but it is already held
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 1 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/etcd/6708/etcd6708_test.go:67:13: Annotation @acquires(c.RWMutex) is not checkable in this context - check spelling and resolver prefix
+============================================================
+-- exit code: 0
+
+============================================================
+[all 12/43] blocking/double_locking/grpc/3017/grpc3017_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/grpc/3017/grpc3017_test.go:67:4: Function RemoveSubConn$1 returns lock(s) mu but no @returns(...) contract is declared
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 6 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/grpc/3017/grpc3017_test.go:34:15: Heuristic: function NewSubConn invokes a dynamic callback while holding lock(s) mu; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/double_locking/grpc/3017/grpc3017_test.go:35:9: Heuristic: function NewSubConn invokes a dynamic callback while holding lock(s) mu; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/double_locking/grpc/3017/grpc3017_test.go:54:10: Heuristic: function RemoveSubConn invokes a dynamic callback while holding lock(s) mu; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/double_locking/grpc/3017/grpc3017_test.go:65:14: Heuristic: function RemoveSubConn$1 manipulates lock mu and may be missing @acquires(mu)
+evaluation/gobench_samples/blocking/double_locking/grpc/3017/grpc3017_test.go:69:9: Heuristic: function RemoveSubConn$1 invokes a dynamic callback while holding lock(s) mu; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/double_locking/grpc/3017/grpc3017_test.go:70:9: Heuristic: function RemoveSubConn$1 invokes a dynamic callback while holding lock(s) mu; callback may reacquire these locks and deadlock
+============================================================
+-- exit code: 0
+
+============================================================
+[all 13/43] blocking/double_locking/grpc/795/grpc795_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 3 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/grpc/795/grpc795_test.go:17:12: Function GracefulStop reacquires lock mu while it is already held
+evaluation/gobench_samples/blocking/double_locking/grpc/795/grpc795_test.go:18:3: Function GracefulStop returns lock(s) mu but no @returns(...) contract is declared
+evaluation/gobench_samples/blocking/double_locking/grpc/795/grpc795_test.go:21:1: Function GracefulStop returns lock(s) mu but no @returns(...) contract is declared
+============================================================
+-- exit code: 0
+
+============================================================
+[all 14/43] blocking/double_locking/hugo/5379/hugo5379_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 2 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/hugo/5379/hugo5379_test.go:84:3: Function prepareForRender returns lock(s) contentInitMu but no @returns(...) contract is declared
+evaluation/gobench_samples/blocking/double_locking/hugo/5379/hugo5379_test.go:86:2: Function prepareForRender returns lock(s) contentInitMu but no @returns(...) contract is declared
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 2 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/hugo/5379/hugo5379_test.go:67:24: Heuristic: function initPlain$1 manipulates lock contentInitMu and may be missing @acquires(contentInitMu)
+evaluation/gobench_samples/blocking/double_locking/hugo/5379/hugo5379_test.go:102:24: Heuristic: function initContent$1$1 manipulates lock contentInitMu and may be missing @acquires(contentInitMu)
+============================================================
+-- exit code: 0
+
+============================================================
+[all 15/43] blocking/double_locking/moby/17176/moby17176_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/moby/17176/moby17176_test.go:38:3: Function cleanupDeletedDevices returns lock(s) Mutex but no @returns(...) contract is declared
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 1 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/moby/17176/moby17176_test.go:51:10: Heuristic: function testDevmapperLockReleasedDeviceDeletion$1 manipulates lock Mutex and may be missing @acquires(Mutex)
+============================================================
+-- exit code: 0
+
+============================================================
+[all 16/43] blocking/double_locking/moby/36114/moby36114_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/moby/36114/moby36114_test.go:27:26: Call to hotRemoveVHDsAtStart acquires lock svm.Mutex, but it is already held
+============================================================
+-- exit code: 0
+
+============================================================
+[all 17/43] blocking/double_locking/moby/7559/moby7559_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/moby/7559/moby7559_test.go:23:27: Function Run reacquires lock connTrackLock while it is already held
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 1 warning(s)
+============================================================
+============================================================
+-- exit code: 0
+
+============================================================
+[all 18/43] blocking/double_locking/syncthing/4829/syncthing4829_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/double_locking/syncthing/4829/syncthing4829_test.go:25:11: Call to notify acquires lock m.mut, but it is already held
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 5 warning(s)
+============================================================
+:0:0: Heuristic: function RemoveMapping invokes a dynamic callback while holding lock(s) mut; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/double_locking/syncthing/4829/syncthing4829_test.go:21:19: Heuristic: function clearAddresses invokes a dynamic callback while holding lock(s) mut; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/double_locking/syncthing/4829/syncthing4829_test.go:22:9: Heuristic: function clearAddresses invokes a dynamic callback while holding lock(s) mut; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/double_locking/syncthing/4829/syncthing4829_test.go:24:8: Heuristic: function clearAddresses invokes a dynamic callback while holding lock(s) mut; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/double_locking/syncthing/4829/syncthing4829_test.go:48:21: Heuristic: function NewMapping invokes a dynamic callback while holding lock(s) mut; callback may reacquire these locks and deadlock
+============================================================
+-- exit code: 0
+
+============================================================
+[all 19/43] blocking/rwr_deadlock/cockroach/16167/cockroach16167_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 7 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/16167/cockroach16167_test.go:30:11: Call to Prepare requires lock e.systemConfigMu, but it's not held
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/16167/cockroach16167_test.go:40:20: Call to getDatabaseCache acquires lock e.systemConfigMu, but it is already held
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/16167/cockroach16167_test.go:56:15: Call to runTxnAttempt requires lock e.systemConfigMu, but it's not held
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/16167/cockroach16167_test.go:63:21: Call to execStmtInOpenTxn acquires lock systemConfigMu, but it is already held
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/16167/cockroach16167_test.go:69:32: Call to New acquires lock systemConfigMu, but it is already held
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/16167/cockroach16167_test.go:75:23: Call to resetForBatch acquires lock systemConfigMu, but it is already held
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/16167/cockroach16167_test.go:93:25: Call to execStmtsInCurrentTxn acquires lock e.systemConfigMu, but it is already held
+============================================================
+-- exit code: 0
+
+============================================================
+[all 20/43] blocking/rwr_deadlock/cockroach/3710/cockroach3710_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 5 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/3710/cockroach3710_test.go:33:26: Call to MaybeAdd requires lock repl.store.mu, but it's not held
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/3710/cockroach3710_test.go:82:1: Function shouldQueue returns lock(s) mu but no @returns(...) contract is declared
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/3710/cockroach3710_test.go:86:20: Call to RaftStatus acquires lock s.mu, but it is already held
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/3710/cockroach3710_test.go:87:1: Function getTruncatableIndexes returns lock(s) mu but no @returns(...) contract is declared
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/3710/cockroach3710_test.go:121:2: Potential deadlock between goroutines: go ForceRaftLogScanAndProcess may reacquire mu while already held, and go processRaft also acquires mu (other goroutine starts near line 122)
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 3 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/3710/cockroach3710_test.go:49:13: Heuristic: function processRaft$1 manipulates lock RWMutex and may be missing @acquires(RWMutex)
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/3710/cockroach3710_test.go:51:22: Heuristic: function processRaft$1 invokes a dynamic callback while holding lock(s) RWMutex; callback may reacquire these locks and deadlock
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/3710/cockroach3710_test.go:72:9: Heuristic: function MaybeAdd manipulates lock bq.Mutex and may be missing @acquires(bq.Mutex)
+============================================================
+-- exit code: 0
+
+============================================================
+[all 21/43] blocking/rwr_deadlock/cockroach/6181/cockroach6181_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/rwr_deadlock/cockroach/6181/cockroach6181_test.go:36:1: Function LookupRangeDescriptor must return with lock rdc.rangeCacheMu held
+============================================================
+-- exit code: 0
+
+============================================================
+[all 22/43] blocking/rwr_deadlock/kubernetes/58107/kubernetes58107_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/rwr_deadlock/kubernetes/58107/kubernetes58107_test.go:106:2: Potential deadlock between goroutines: go Run may reacquire workerLock while already held, and go Sync also acquires workerLock (other goroutine starts near line 107)
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 2 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/rwr_deadlock/kubernetes/58107/kubernetes58107_test.go:64:22: Heuristic: function worker$1 manipulates lock workerLock and may be missing @acquires(workerLock)
+evaluation/gobench_samples/blocking/rwr_deadlock/kubernetes/58107/kubernetes58107_test.go:66:12: Heuristic: function worker$1 invokes a dynamic callback while holding lock(s) workerLock; callback may reacquire these locks and deadlock
+============================================================
+-- exit code: 0
+
+============================================================
+[all 23/43] blocking/rwr_deadlock/kubernetes/62464/kubernetes62464_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 4 finding(s)
+============================================================
+evaluation/gobench_samples/blocking/rwr_deadlock/kubernetes/62464/kubernetes62464_test.go:36:22: Call to GetCPUSet acquires lock s.RWMutex, but it is already held
+evaluation/gobench_samples/blocking/rwr_deadlock/kubernetes/62464/kubernetes62464_test.go:39:20: Call to GetDefaultCPUSet acquires lock s.RWMutex, but it is already held
+evaluation/gobench_samples/blocking/rwr_deadlock/kubernetes/62464/kubernetes62464_test.go:102:2: Potential deadlock between goroutines: go reconcileState may reacquire RWMutex while already held, and go RemoveContainer also acquires RWMutex (other goroutine starts near line 103)
+evaluation/gobench_samples/blocking/rwr_deadlock/kubernetes/62464/kubernetes62464_test.go:103:2: Potential deadlock between goroutines: go RemoveContainer may reacquire RWMutex while already held, and go reconcileState also acquires RWMutex (other goroutine starts near line 102)
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 2 warning(s)
+============================================================
+evaluation/gobench_samples/blocking/rwr_deadlock/kubernetes/62464/kubernetes62464_test.go:68:20: Annotation @acquires(s.RWMutex) is not checkable in this context - check spelling and resolver prefix
+evaluation/gobench_samples/blocking/rwr_deadlock/kubernetes/62464/kubernetes62464_test.go:69:20: Annotation @acquires(s.RWMutex) is not checkable in this context - check spelling and resolver prefix
+============================================================
+-- exit code: 0
+
+============================================================
+[all 24/43] nonblocking/data_race/etcd/4876/etcd4876_test.go
+============================================================
+[no output from analyzer]
+-- exit code: 0
+
+============================================================
+[all 25/43] nonblocking/data_race/etcd/8194/etcd8194_test.go
+============================================================
+[no output from analyzer]
+-- exit code: 0
+
+============================================================
+[all 26/43] nonblocking/data_race/etcd/9446/etcd9446_test.go
+============================================================
+[no output from analyzer]
+-- exit code: 0
+
+============================================================
+[all 27/43] nonblocking/data_race/grpc/1748/grpc1748_test.go
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 2 warning(s)
+============================================================
+evaluation/gobench_samples/nonblocking/data_race/grpc/1748/grpc1748_test.go:79:14: Heuristic: function Connect manipulates lock mu and may be missing @acquires(mu)
+evaluation/gobench_samples/nonblocking/data_race/grpc/1748/grpc1748_test.go:135:24: Heuristic: function newCCBalancerWrapper invokes a dynamic callback while holding lock(s) balanceMutex; callback may reacquire these locks and deadlock
+============================================================
+-- exit code: 0
+
+============================================================
+[all 28/43] nonblocking/data_race/grpc/3090/grpc3090_test.go
+============================================================
+
+============================================================
+ANNOTATION ADVISORY WARNINGS - 1 warning(s)
+============================================================
+evaluation/gobench_samples/nonblocking/data_race/grpc/3090/grpc3090_test.go:43:25: Heuristic: function resolveNow invokes a dynamic callback while holding lock(s) mu; callback may reacquire these locks and deadlock
+============================================================
+-- exit code: 0
+
+============================================================
+[all 29/43] nonblocking/data_race/istio/16742/istio16742_test.go
+============================================================
+[no output from analyzer]
+-- exit code: 0
+
+============================================================
+[all 30/43] nonblocking/data_race/istio/8144/istio8144_test.go
+============================================================
+[no output from analyzer]
+-- exit code: 0
+
+============================================================
+[all 31/43] nonblocking/data_race/istio/8214/istio8214_test.go
+============================================================
+[no output from analyzer]
+-- exit code: 0
+
+============================================================
+[all 32/43] nonblocking/data_race/kubernetes/49404/kubernetes49404_test.go
+============================================================
+[no output from analyzer]
+-- exit code: 0
+
+============================================================
+[all 33/43] nonblocking/data_race/kubernetes/77796/kubernetes77796_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/nonblocking/data_race/kubernetes/77796/kubernetes77796_test.go:27:18: Access to Cacher.watcherBuffer requires lock RWMutex, but it's not held
+============================================================
+-- exit code: 0
+
+============================================================
+[all 34/43] nonblocking/data_race/kubernetes/79631/kubernetes79631_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 2 finding(s)
+============================================================
+evaluation/gobench_samples/nonblocking/data_race/kubernetes/79631/kubernetes79631_test.go:70:14: Access to PriorityQueue.podBackoffQ requires lock lock, but it's not held
+evaluation/gobench_samples/nonblocking/data_race/kubernetes/79631/kubernetes79631_test.go:113:5: Access to PriorityQueue.podBackoffQ requires lock lock, but it's not held
+============================================================
+-- exit code: 0
+
+============================================================
+[all 35/43] nonblocking/data_race/kubernetes/80284/kubernetes80284_test.go
+============================================================
+[no output from analyzer]
+-- exit code: 0
+
+============================================================
+[all 36/43] nonblocking/data_race/kubernetes/81091/kubernetes81091_test.go
+============================================================
+[no output from analyzer]
+-- exit code: 0
+
+============================================================
+[all 37/43] nonblocking/data_race/kubernetes/81148/kubernetes81148_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 2 finding(s)
+============================================================
+evaluation/gobench_samples/nonblocking/data_race/kubernetes/81148/kubernetes81148_test.go:70:17: Access to PriorityQueue.unschedulableQ requires lock lock, but it's not held
+evaluation/gobench_samples/nonblocking/data_race/kubernetes/81148/kubernetes81148_test.go:125:5: Access to PriorityQueue.unschedulableQ requires lock lock, but it's not held
+============================================================
+-- exit code: 0
+
+============================================================
+[all 38/43] nonblocking/data_race/kubernetes/82239/kubernetes82239_test.go
+============================================================
+[no output from analyzer]
+-- exit code: 0
+
+============================================================
+[all 39/43] nonblocking/data_race/kubernetes/82550/kubernetes82550_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 3 finding(s)
+============================================================
+evaluation/gobench_samples/nonblocking/data_race/kubernetes/82550/kubernetes82550_test.go:30:7: Access to lazyEcrProvider.actualProvider requires lock mu, but it's not held
+evaluation/gobench_samples/nonblocking/data_race/kubernetes/82550/kubernetes82550_test.go:31:5: Access to lazyEcrProvider.actualProvider requires lock mu, but it's not held
+evaluation/gobench_samples/nonblocking/data_race/kubernetes/82550/kubernetes82550_test.go:33:13: Access to lazyEcrProvider.actualProvider requires lock mu, but it's not held
+============================================================
+-- exit code: 0
+
+============================================================
+[all 40/43] nonblocking/data_race/kubernetes/88331/kubernetes88331_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 2 finding(s)
+============================================================
+evaluation/gobench_samples/nonblocking/data_race/kubernetes/88331/kubernetes88331_test.go:66:14: Access to PriorityQueue.podBackoffQ requires lock lock, but it's not held
+evaluation/gobench_samples/nonblocking/data_race/kubernetes/88331/kubernetes88331_test.go:114:5: Access to PriorityQueue.podBackoffQ requires lock lock, but it's not held
+============================================================
+-- exit code: 0
+
+============================================================
+[all 41/43] nonblocking/data_race/kubernetes/89164/kubernetes89164_test.go
+============================================================
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/nonblocking/data_race/kubernetes/89164/kubernetes89164_test.go:47:18: Access to Cacher.watcherBuffer requires lock RWMutex, but it's not held
+============================================================
+-- exit code: 0
+
+============================================================
+[all 42/43] nonblocking/data_race/serving/3148/serving3148_test.go
+============================================================
+[no output from analyzer]
+-- exit code: 0
+
+============================================================
+[all 43/43] nonblocking/data_race/serving/6472/serving6472_test.go
+============================================================
+[no output from analyzer]
+-- exit code: 0
+
+[all] completed 43 case(s)

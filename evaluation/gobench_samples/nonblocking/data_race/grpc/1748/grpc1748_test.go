@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// @guarded_by(balanceMutex)
 var minConnectTimeout = 10 * time.Second
 
 var balanceMutex sync.Mutex // We add this for avoiding other data race

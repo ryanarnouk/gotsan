@@ -1,0 +1,2 @@
+scope,total_cases,included_cases,excluded_cases,tp_labeled_findings,fp_labeled_findings,duplicate_labeled_findings,unlabeled_findings,tp_case,fn_case_derived,fp_case_derived,predicted_positive_cases,false_positive_rate_per_test_case_level,precision_finding_level,precision_case_level,recall_case_level,f1_case_level
+overall,43,33,10,38,15,3,0,25,8,3,28,0.091,0.717,0.893,0.758,0.820

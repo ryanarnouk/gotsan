@@ -1,0 +1,44 @@
+case_path,finding_count,tp_count,fp_count,duplicate_count,unlabeled_count,precision,recall,include_in_metrics,case_label,notes
+blocking/abba_deadlock/cockroach/10214/cockroach10214_test.go,1,1,0,0,0,1.000,1.000,1,,
+blocking/abba_deadlock/cockroach/7504/cockroach7504_test.go,3,2,1,0,0,0.667,0.667,1,,
+blocking/abba_deadlock/hugo/3251/hugo3251_test.go,1,0,1,0,0,0.000,0.000,1,,
+blocking/abba_deadlock/kubernetes/13135/kubernetes13135_test.go,1,1,0,0,0,1.000,1.000,1,,
+blocking/abba_deadlock/kubernetes/30872/kubernetes30872_test.go,0,0,0,0,0,N/A,N/A,1,,
+blocking/abba_deadlock/moby/4951/moby4951_test.go,5,3,0,2,0,1.000,0.600,1,,
+blocking/double_locking/cockroach/584/cockroach584_test.go,2,2,0,0,0,1.000,1.000,1,,
+blocking/double_locking/cockroach/9935/cockroach9935_test.go,1,1,0,0,0,1.000,1.000,1,,
+blocking/double_locking/etcd/10492/etcd10492_test.go,1,1,0,0,0,1.000,1.000,1,,
+blocking/double_locking/etcd/5509/etcd5509_test.go,1,1,0,0,0,1.000,1.000,1,,
+blocking/double_locking/etcd/6708/etcd6708_test.go,1,1,0,0,0,1.000,1.000,1,,
+blocking/double_locking/grpc/3017/grpc3017_test.go,1,1,0,0,0,1.000,1.000,1,,
+blocking/double_locking/grpc/795/grpc795_test.go,3,3,0,0,0,1.000,1.000,1,,
+blocking/double_locking/hugo/5379/hugo5379_test.go,2,0,2,0,0,0.000,0.000,1,,
+blocking/double_locking/moby/17176/moby17176_test.go,1,1,0,0,0,1.000,1.000,1,,
+blocking/double_locking/moby/36114/moby36114_test.go,1,1,0,0,0,1.000,1.000,1,,
+blocking/double_locking/moby/7559/moby7559_test.go,1,1,0,0,0,1.000,1.000,1,,
+blocking/double_locking/syncthing/4829/syncthing4829_test.go,1,1,0,0,0,1.000,1.000,1,,
+blocking/rwr_deadlock/cockroach/16167/cockroach16167_test.go,7,5,2,0,0,0.714,0.714,1,,
+blocking/rwr_deadlock/cockroach/3710/cockroach3710_test.go,5,2,3,0,0,0.400,0.400,1,,
+blocking/rwr_deadlock/cockroach/6181/cockroach6181_test.go,1,0,1,0,0,0.000,0.000,1,,
+blocking/rwr_deadlock/kubernetes/58107/kubernetes58107_test.go,1,1,0,0,0,1.000,1.000,1,,
+blocking/rwr_deadlock/kubernetes/62464/kubernetes62464_test.go,4,1,2,1,0,0.333,0.250,1,,
+nonblocking/data_race/etcd/4876/etcd4876_test.go,0,0,0,0,0,N/A,N/A,0,,Not a mutex
+nonblocking/data_race/etcd/8194/etcd8194_test.go,0,0,0,0,0,N/A,N/A,0,,Not a mutex
+nonblocking/data_race/etcd/9446/etcd9446_test.go,0,0,0,0,0,N/A,N/A,0,,Not a mutex
+nonblocking/data_race/grpc/1748/grpc1748_test.go,0,0,0,0,0,N/A,N/A,1,,
+nonblocking/data_race/grpc/3090/grpc3090_test.go,0,0,0,0,0,N/A,N/A,1,,
+nonblocking/data_race/istio/16742/istio16742_test.go,0,0,0,0,0,N/A,N/A,1,,
+nonblocking/data_race/istio/8144/istio8144_test.go,0,0,0,0,0,N/A,N/A,0,,Not a mutex
+nonblocking/data_race/istio/8214/istio8214_test.go,0,0,0,0,0,N/A,N/A,0,,Not a mutex
+nonblocking/data_race/kubernetes/49404/kubernetes49404_test.go,0,0,0,0,0,N/A,N/A,0,,WaitGroup
+nonblocking/data_race/kubernetes/77796/kubernetes77796_test.go,1,1,0,0,0,1.000,1.000,1,,
+nonblocking/data_race/kubernetes/79631/kubernetes79631_test.go,2,1,1,0,0,0.500,0.500,1,,
+nonblocking/data_race/kubernetes/80284/kubernetes80284_test.go,0,0,0,0,0,N/A,N/A,1,,
+nonblocking/data_race/kubernetes/81091/kubernetes81091_test.go,0,0,0,0,0,N/A,N/A,0,,Not a mutex
+nonblocking/data_race/kubernetes/81148/kubernetes81148_test.go,2,1,1,0,0,0.500,0.500,1,,
+nonblocking/data_race/kubernetes/82239/kubernetes82239_test.go,0,0,0,0,0,N/A,N/A,0,,No mutex
+nonblocking/data_race/kubernetes/82550/kubernetes82550_test.go,3,3,0,0,0,1.000,1.000,1,,
+nonblocking/data_race/kubernetes/88331/kubernetes88331_test.go,2,1,1,0,0,0.500,0.500,1,,
+nonblocking/data_race/kubernetes/89164/kubernetes89164_test.go,1,1,0,0,0,1.000,1.000,1,,
+nonblocking/data_race/serving/3148/serving3148_test.go,0,0,0,0,0,N/A,N/A,0,,WaitGroup
+nonblocking/data_race/serving/6472/serving6472_test.go,0,0,0,0,0,N/A,N/A,0,,Sync.Cond

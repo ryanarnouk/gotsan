@@ -7,6 +7,19 @@ import (
 )
 
 func resolveFunctionFromValue(v ssa.Value) *ssa.Function {
+	return resolveFunctionFromValueSeen(v, make(map[ssa.Value]bool))
+}
+
+func resolveFunctionFromValueSeen(v ssa.Value, seen map[ssa.Value]bool) *ssa.Function {
+	if v == nil {
+		return nil
+	}
+
+	if seen[v] {
+		return nil
+	}
+	seen[v] = true
+
 	switch n := v.(type) {
 	case *ssa.Function:
 		return n
@@ -17,11 +30,11 @@ func resolveFunctionFromValue(v ssa.Value) *ssa.Function {
 		fn, _ := n.Fn.(*ssa.Function)
 		return fn
 	case *ssa.ChangeType:
-		return resolveFunctionFromValue(n.X)
+		return resolveFunctionFromValueSeen(n.X, seen)
 	case *ssa.ChangeInterface:
-		return resolveFunctionFromValue(n.X)
+		return resolveFunctionFromValueSeen(n.X, seen)
 	case *ssa.UnOp:
-		return resolveFunctionFromValue(n.X)
+		return resolveFunctionFromValueSeen(n.X, seen)
 	case *ssa.Alloc:
 		refs := n.Referrers()
 		if refs == nil {
@@ -32,7 +45,7 @@ func resolveFunctionFromValue(v ssa.Value) *ssa.Function {
 			if !ok {
 				continue
 			}
-			if fn := resolveFunctionFromValue(store.Val); fn != nil {
+			if fn := resolveFunctionFromValueSeen(store.Val, seen); fn != nil {
 				return fn
 			}
 		}
@@ -42,19 +55,28 @@ func resolveFunctionFromValue(v ssa.Value) *ssa.Function {
 }
 
 func resolveParameterFromValue(v ssa.Value) *ssa.Parameter {
+	return resolveParameterFromValueSeen(v, make(map[ssa.Value]bool))
+}
+
+func resolveParameterFromValueSeen(v ssa.Value, seen map[ssa.Value]bool) *ssa.Parameter {
 	if v == nil {
 		return nil
 	}
+
+	if seen[v] {
+		return nil
+	}
+	seen[v] = true
 
 	switch n := v.(type) {
 	case *ssa.Parameter:
 		return n
 	case *ssa.ChangeType:
-		return resolveParameterFromValue(n.X)
+		return resolveParameterFromValueSeen(n.X, seen)
 	case *ssa.ChangeInterface:
-		return resolveParameterFromValue(n.X)
+		return resolveParameterFromValueSeen(n.X, seen)
 	case *ssa.UnOp:
-		return resolveParameterFromValue(n.X)
+		return resolveParameterFromValueSeen(n.X, seen)
 	case *ssa.Alloc:
 		refs := n.Referrers()
 		if refs == nil {
@@ -65,7 +87,7 @@ func resolveParameterFromValue(v ssa.Value) *ssa.Parameter {
 			if !ok {
 				continue
 			}
-			if param := resolveParameterFromValue(store.Val); param != nil {
+			if param := resolveParameterFromValueSeen(store.Val, seen); param != nil {
 				return param
 			}
 		}
@@ -77,28 +99,46 @@ func resolveParameterFromValue(v ssa.Value) *ssa.Parameter {
 }
 
 func resolveFreeVarFromValue(v ssa.Value) *ssa.FreeVar {
+	return resolveFreeVarFromValueSeen(v, make(map[ssa.Value]bool))
+}
+
+func resolveFreeVarFromValueSeen(v ssa.Value, seen map[ssa.Value]bool) *ssa.FreeVar {
 	if v == nil {
 		return nil
 	}
+
+	if seen[v] {
+		return nil
+	}
+	seen[v] = true
 
 	switch n := v.(type) {
 	case *ssa.FreeVar:
 		return n
 	case *ssa.ChangeType:
-		return resolveFreeVarFromValue(n.X)
+		return resolveFreeVarFromValueSeen(n.X, seen)
 	case *ssa.ChangeInterface:
-		return resolveFreeVarFromValue(n.X)
+		return resolveFreeVarFromValueSeen(n.X, seen)
 	case *ssa.UnOp:
-		return resolveFreeVarFromValue(n.X)
+		return resolveFreeVarFromValueSeen(n.X, seen)
 	default:
 		return nil
 	}
 }
 
 func resolveConcreteTypesFromValue(v ssa.Value) []types.Type {
+	return resolveConcreteTypesFromValueSeen(v, make(map[ssa.Value]bool))
+}
+
+func resolveConcreteTypesFromValueSeen(v ssa.Value, seen map[ssa.Value]bool) []types.Type {
 	if v == nil {
 		return nil
 	}
+
+	if seen[v] {
+		return nil
+	}
+	seen[v] = true
 
 	switch n := v.(type) {
 	case *ssa.MakeInterface:
@@ -113,11 +153,11 @@ func resolveConcreteTypesFromValue(v ssa.Value) []types.Type {
 		}
 		return inferConcreteReturnTypes(callee)
 	case *ssa.ChangeType:
-		return resolveConcreteTypesFromValue(n.X)
+		return resolveConcreteTypesFromValueSeen(n.X, seen)
 	case *ssa.ChangeInterface:
-		return resolveConcreteTypesFromValue(n.X)
+		return resolveConcreteTypesFromValueSeen(n.X, seen)
 	case *ssa.UnOp:
-		return resolveConcreteTypesFromValue(n.X)
+		return resolveConcreteTypesFromValueSeen(n.X, seen)
 	default:
 		if t := v.Type(); t != nil {
 			return []types.Type{t}
