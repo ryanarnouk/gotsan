@@ -21,8 +21,8 @@ type Authenticator struct {
 
 // @acquires(a.mu)
 func (a *Authenticator) UpdateTransportConfig() {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	// a.mu.Lock()
+	// defer a.mu.Unlock()
 	d := NewDialer()
 	a.onRotate = d.CloseAll
 }

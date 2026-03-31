@@ -33,7 +33,7 @@ case_index,case_total,case_path,category,project,bug_id,case_id,finding_count,in
 32,43,nonblocking/data_race/kubernetes/49404/kubernetes49404_test.go,nonblocking/data_race,kubernetes,49404,kubernetes49404,0,0,,WaitGroup
 33,43,nonblocking/data_race/kubernetes/77796/kubernetes77796_test.go,nonblocking/data_race,kubernetes,77796,kubernetes77796,1,1,,
 34,43,nonblocking/data_race/kubernetes/79631/kubernetes79631_test.go,nonblocking/data_race,kubernetes,79631,kubernetes79631,2,1,,
-35,43,nonblocking/data_race/kubernetes/80284/kubernetes80284_test.go,nonblocking/data_race,kubernetes,80284,kubernetes80284,0,1,,
+35,43,nonblocking/data_race/kubernetes/80284/kubernetes80284_test.go,nonblocking/data_race,kubernetes,80284,kubernetes80284,1,1,,
 36,43,nonblocking/data_race/kubernetes/81091/kubernetes81091_test.go,nonblocking/data_race,kubernetes,81091,kubernetes81091,0,0,,Not a mutex
 37,43,nonblocking/data_race/kubernetes/81148/kubernetes81148_test.go,nonblocking/data_race,kubernetes,81148,kubernetes81148,2,1,,
 38,43,nonblocking/data_race/kubernetes/82239/kubernetes82239_test.go,nonblocking/data_race,kubernetes,82239,kubernetes82239,0,0,,No mutex

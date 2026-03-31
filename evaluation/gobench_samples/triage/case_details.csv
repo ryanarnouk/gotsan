@@ -33,7 +33,7 @@ nonblocking/data_race/istio/8214/istio8214_test.go,0,0,0,0,0,N/A,N/A,0,,Not a mu
 nonblocking/data_race/kubernetes/49404/kubernetes49404_test.go,0,0,0,0,0,N/A,N/A,0,,WaitGroup
 nonblocking/data_race/kubernetes/77796/kubernetes77796_test.go,1,1,0,0,0,1.000,1.000,1,,
 nonblocking/data_race/kubernetes/79631/kubernetes79631_test.go,2,1,1,0,0,0.500,0.500,1,,
-nonblocking/data_race/kubernetes/80284/kubernetes80284_test.go,0,0,0,0,0,N/A,N/A,1,,
+nonblocking/data_race/kubernetes/80284/kubernetes80284_test.go,1,1,0,0,0,1.000,1.000,1,,
 nonblocking/data_race/kubernetes/81091/kubernetes81091_test.go,0,0,0,0,0,N/A,N/A,0,,Not a mutex
 nonblocking/data_race/kubernetes/81148/kubernetes81148_test.go,2,1,1,0,0,0.500,0.500,1,,
 nonblocking/data_race/kubernetes/82239/kubernetes82239_test.go,0,0,0,0,0,N/A,N/A,0,,No mutex

@@ -471,7 +471,12 @@ evaluation/gobench_samples/nonblocking/data_race/kubernetes/79631/kubernetes7963
 ============================================================
 [all 35/43] nonblocking/data_race/kubernetes/80284/kubernetes80284_test.go
 ============================================================
-[no output from analyzer]
+
+============================================================
+GOTSAN REPORT - 1 finding(s)
+============================================================
+evaluation/gobench_samples/nonblocking/data_race/kubernetes/80284/kubernetes80284_test.go:27:4: Access to Authenticator.onRotate requires lock mu, but it's not held
+============================================================
 -- exit code: 0
 
 ============================================================
